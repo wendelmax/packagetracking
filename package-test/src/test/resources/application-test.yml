@@ -30,14 +30,6 @@ spring:
     username: guest
     password: guest
     virtual-host: /
-  
-  cache:
-    type: simple
-    cache-names:
-      - packages
-      - tracking-events
-    simple:
-      time-to-live: 300000
 
 logging:
   level:

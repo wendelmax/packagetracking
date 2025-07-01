@@ -50,20 +50,6 @@ spring:
       auto-commit: true
       connection-init-sql: SET SESSION sql_mode='STRICT_TRANS_TABLES'
 
-  cache:
-    type: simple
-    cache-names:
-      - packages
-      - packages-list
-      - packages-paginated
-      - packages-by-status
-      - packages-by-sender
-      - packages-by-recipient
-      - tracking-events
-    simple:
-      time-to-live: 600000 # 10 minutos
-      max-size: 10000
-
 app:
   query:
     enabled: true

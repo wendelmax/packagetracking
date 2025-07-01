@@ -67,7 +67,7 @@ class PackageQueryControllerTest {
     @Test
     void getPackage_WithEvents_Success() {
         // Given
-        when(packageQueryService.getPackage("pacote-12345", true)).thenReturn(packageResponse);
+        when(packageQueryService.getPackageWithCache("pacote-12345", true)).thenReturn(packageResponse);
 
         // When
         ResponseEntity<PackageResponse> response = packageQueryController.getPackage("pacote-12345", Optional.of(true));
@@ -84,7 +84,7 @@ class PackageQueryControllerTest {
         assertNotNull(response.getBody().getEvents());
         assertEquals(1, response.getBody().getEvents().size());
 
-        verify(packageQueryService).getPackage("pacote-12345", true);
+        verify(packageQueryService).getPackageWithCache("pacote-12345", true);
     }
 
     @Test
@@ -100,7 +100,7 @@ class PackageQueryControllerTest {
             .updatedAt(Instant.parse("2025-01-20T10:00:00Z"))
             .build();
 
-        when(packageQueryService.getPackage("pacote-12345", false)).thenReturn(packageWithoutEvents);
+        when(packageQueryService.getPackageWithCache("pacote-12345", false)).thenReturn(packageWithoutEvents);
 
         // When
         ResponseEntity<PackageResponse> response = packageQueryController.getPackage("pacote-12345", Optional.of(false));
@@ -112,13 +112,13 @@ class PackageQueryControllerTest {
         assertEquals("pacote-12345", response.getBody().getId());
         assertNull(response.getBody().getEvents());
 
-        verify(packageQueryService).getPackage("pacote-12345", false);
+        verify(packageQueryService).getPackageWithCache("pacote-12345", false);
     }
 
     @Test
     void getPackage_DefaultIncludeEvents_Success() {
         // Given
-        when(packageQueryService.getPackage("pacote-12345", true)).thenReturn(packageResponse);
+        when(packageQueryService.getPackageWithCache("pacote-12345", true)).thenReturn(packageResponse);
 
         // When
         ResponseEntity<PackageResponse> response = packageQueryController.getPackage("pacote-12345", Optional.empty());
@@ -129,13 +129,13 @@ class PackageQueryControllerTest {
         assertNotNull(response.getBody());
         assertEquals("pacote-12345", response.getBody().getId());
 
-        verify(packageQueryService).getPackage("pacote-12345", true);
+        verify(packageQueryService).getPackageWithCache("pacote-12345", true);
     }
 
     @Test
     void getPackage_PackageNotFound_ReturnsNotFound() {
         // Given
-        when(packageQueryService.getPackage("pacote-inexistente", true))
+        when(packageQueryService.getPackageWithCache("pacote-inexistente", true))
             .thenThrow(new RuntimeException("Pacote não encontrado: pacote-inexistente"));
 
         // When
@@ -146,7 +146,7 @@ class PackageQueryControllerTest {
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         assertNull(response.getBody());
 
-        verify(packageQueryService).getPackage("pacote-inexistente", true);
+        verify(packageQueryService).getPackageWithCache("pacote-inexistente", true);
     }
 
     @Test

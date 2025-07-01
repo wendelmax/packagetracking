@@ -2,9 +2,11 @@ package com.packagetracking.query.service;
 
 import com.packagetracking.query.dto.PackageResponse;
 import com.packagetracking.query.entity.Package;
+import com.packagetracking.query.entity.PackageStatus;
 import com.packagetracking.query.entity.TrackingEvent;
 import com.packagetracking.query.repository.PackageRepository;
 import com.packagetracking.query.repository.TrackingEventRepository;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -29,8 +31,9 @@ public class PackageQueryService {
     
     /**
      * Busca pacote por ID com opção de incluir eventos
+     * Cache apenas para pacotes com status IN_TRANSIT
      */
-    @Cacheable(value = "packages", key = "#id + '-' + #includeEvents")
+    @CircuitBreaker(name = "package-cache", fallbackMethod = "getPackageFallback")
     public PackageResponse getPackage(String id, boolean includeEvents) {
         try {
             log.info("Buscando pacote: {} (incluir eventos: {})", id, includeEvents);
@@ -38,34 +41,14 @@ public class PackageQueryService {
             Package packageEntity = packageRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Pacote não encontrado: " + id));
             
-            PackageResponse.PackageResponseBuilder responseBuilder = PackageResponse.builder()
-                .id(packageEntity.getId())
-                .description(packageEntity.getDescription())
-                .sender(packageEntity.getSender())
-                .recipient(packageEntity.getRecipient())
-                .status(packageEntity.getStatus() != null ? packageEntity.getStatus().name() : "UNKNOWN")
-                .createdAt(packageEntity.getCreatedAt())
-                .updatedAt(packageEntity.getUpdatedAt())
-                .deliveredAt(packageEntity.getDeliveredAt());
+            PackageResponse response = buildPackageResponse(packageEntity, includeEvents);
             
-            if (includeEvents) {
-                List<TrackingEvent> events = trackingEventRepository.findByPackageIdOrderByDateTimeDesc(id);
-                List<PackageResponse.TrackingEventResponse> eventResponses = events.stream()
-                    .map(event -> PackageResponse.TrackingEventResponse.builder()
-                        .pacoteId(event.getPackageId())
-                        .localizacao(event.getLocation())
-                        .descricao(event.getDescription())
-                        .dataHora(event.getDate())
-                        .build())
-                    .collect(Collectors.toList());
-                
-                responseBuilder.events(eventResponses);
-                log.debug("Pacote {} encontrado com {} eventos", id, eventResponses.size());
-            } else {
-                log.debug("Pacote {} encontrado sem eventos", id);
+            // Cache apenas para pacotes IN_TRANSIT
+            if (packageEntity.getStatus() == PackageStatus.IN_TRANSIT) {
+                log.debug("Pacote {} com status IN_TRANSIT será cacheado", id);
             }
             
-            return responseBuilder.build();
+            return response;
                 
         } catch (Exception e) {
             log.error("Erro ao buscar pacote {}: {}", id, e.getMessage(), e);
@@ -74,9 +57,38 @@ public class PackageQueryService {
     }
     
     /**
+     * Método com cache para pacotes IN_TRANSIT
+     */
+    @Cacheable(value = "packages-in-transit", key = "#id + '-' + #includeEvents", 
+               condition = "#result != null and #result.status == 'IN_TRANSIT'")
+    @CircuitBreaker(name = "package-cache", fallbackMethod = "getPackageFallback")
+    public PackageResponse getPackageWithCache(String id, boolean includeEvents) {
+        return getPackage(id, includeEvents);
+    }
+    
+    /**
+     * Fallback method para circuit breaker
+     */
+    public PackageResponse getPackageFallback(String id, boolean includeEvents, Exception e) {
+        log.warn("Circuit breaker ativado para pacote {}: {}", id, e.getMessage());
+        
+        // Tenta buscar do banco sem cache
+        try {
+            Package packageEntity = packageRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Pacote não encontrado: " + id));
+            
+            return buildPackageResponse(packageEntity, includeEvents);
+        } catch (Exception fallbackException) {
+            log.error("Erro no fallback para pacote {}: {}", id, fallbackException.getMessage());
+            throw new RuntimeException("Erro interno do sistema", fallbackException);
+        }
+    }
+    
+    /**
      * Busca pacote por ID de forma assíncrona usando Virtual Threads
      */
     @Async("persistenceExecutor")
+    @CircuitBreaker(name = "package-cache", fallbackMethod = "getPackageAsyncFallback")
     public CompletableFuture<PackageResponse> getPackageAsync(String id, boolean includeEvents) {
         try {
             log.debug("Buscando pacote assincronamente: {} (incluir eventos: {}) (Thread: {})", 
@@ -85,36 +97,9 @@ public class PackageQueryService {
             Package packageEntity = packageRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Pacote não encontrado: " + id));
             
-            PackageResponse.PackageResponseBuilder responseBuilder = PackageResponse.builder()
-                .id(packageEntity.getId())
-                .description(packageEntity.getDescription())
-                .sender(packageEntity.getSender())
-                .recipient(packageEntity.getRecipient())
-                .status(packageEntity.getStatus() != null ? packageEntity.getStatus().name() : "UNKNOWN")
-                .createdAt(packageEntity.getCreatedAt())
-                .updatedAt(packageEntity.getUpdatedAt())
-                .deliveredAt(packageEntity.getDeliveredAt());
+            PackageResponse response = buildPackageResponse(packageEntity, includeEvents);
             
-            if (includeEvents) {
-                List<TrackingEvent> events = trackingEventRepository.findByPackageIdOrderByDateTimeDesc(id);
-                List<PackageResponse.TrackingEventResponse> eventResponses = events.stream()
-                    .map(event -> PackageResponse.TrackingEventResponse.builder()
-                        .pacoteId(event.getPackageId())
-                        .localizacao(event.getLocation())
-                        .descricao(event.getDescription())
-                        .dataHora(event.getDate())
-                        .build())
-                    .collect(Collectors.toList());
-                
-                responseBuilder.events(eventResponses);
-                log.debug("Pacote {} encontrado assincronamente com {} eventos (Thread: {})", 
-                         id, eventResponses.size(), Thread.currentThread());
-            } else {
-                log.debug("Pacote {} encontrado assincronamente sem eventos (Thread: {})", 
-                         id, Thread.currentThread());
-            }
-            
-            return CompletableFuture.completedFuture(responseBuilder.build());
+            return CompletableFuture.completedFuture(response);
                 
         } catch (Exception e) {
             log.error("Erro ao buscar pacote assincronamente {}: {}", id, e.getMessage(), e);
@@ -123,9 +108,27 @@ public class PackageQueryService {
     }
     
     /**
-     * Busca lista de pacotes com filtros
+     * Fallback method para circuit breaker assíncrono
      */
-    @Cacheable(value = "packages-list", key = "'sender:' + #sender + '-recipient:' + #recipient")
+    public CompletableFuture<PackageResponse> getPackageAsyncFallback(String id, boolean includeEvents, Exception e) {
+        log.warn("Circuit breaker ativado para pacote assíncrono {}: {}", id, e.getMessage());
+        
+        try {
+            Package packageEntity = packageRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Pacote não encontrado: " + id));
+            
+            PackageResponse response = buildPackageResponse(packageEntity, includeEvents);
+            return CompletableFuture.completedFuture(response);
+        } catch (Exception fallbackException) {
+            log.error("Erro no fallback assíncrono para pacote {}: {}", id, fallbackException.getMessage());
+            return CompletableFuture.failedFuture(new RuntimeException("Erro interno do sistema", fallbackException));
+        }
+    }
+    
+    /**
+     * Busca lista de pacotes com filtros
+     * Sem cache para listas
+     */
     public List<PackageResponse> getPackages(String sender, String recipient) {
         try {
             log.info("Buscando pacotes - sender: {}, recipient: {}", sender, recipient);
@@ -143,16 +146,7 @@ public class PackageQueryService {
             }
             
             return packages.stream()
-                .map(packageEntity -> PackageResponse.builder()
-                    .id(packageEntity.getId())
-                    .description(packageEntity.getDescription())
-                    .sender(packageEntity.getSender())
-                    .recipient(packageEntity.getRecipient())
-                    .status(packageEntity.getStatus() != null ? packageEntity.getStatus().name() : "UNKNOWN")
-                    .createdAt(packageEntity.getCreatedAt())
-                    .updatedAt(packageEntity.getUpdatedAt())
-                    .deliveredAt(packageEntity.getDeliveredAt())
-                    .build())
+                .map(packageEntity -> buildPackageResponse(packageEntity, false))
                 .toList();
                 
         } catch (Exception e) {
@@ -183,16 +177,7 @@ public class PackageQueryService {
             }
             
             List<PackageResponse> responses = packages.stream()
-                .map(packageEntity -> PackageResponse.builder()
-                    .id(packageEntity.getId())
-                    .description(packageEntity.getDescription())
-                    .sender(packageEntity.getSender())
-                    .recipient(packageEntity.getRecipient())
-                    .status(packageEntity.getStatus() != null ? packageEntity.getStatus().name() : "UNKNOWN")
-                    .createdAt(packageEntity.getCreatedAt())
-                    .updatedAt(packageEntity.getUpdatedAt())
-                    .deliveredAt(packageEntity.getDeliveredAt())
-                    .build())
+                .map(packageEntity -> buildPackageResponse(packageEntity, false))
                 .toList();
             
             log.debug("Pacotes encontrados assincronamente: {} registros (Thread: {})", 
@@ -206,9 +191,9 @@ public class PackageQueryService {
     }
     
     /**
-     * Busca lista de pacotes paginados com filtros
+     * Busca lista de pacotes paginada
+     * Sem cache para paginação
      */
-    @Cacheable(value = "packages-paginated", key = "'sender:' + #sender + '-recipient:' + #recipient + '-page:' + #pageable.pageNumber + '-size:' + #pageable.pageSize")
     public Page<PackageResponse> getPackagesPaginated(String sender, String recipient, Pageable pageable) {
         try {
             log.info("Buscando pacotes paginados - sender: {}, recipient: {}, page: {}, size: {}", 
@@ -226,20 +211,11 @@ public class PackageQueryService {
                 packages = packageRepository.findAll(pageable);
             }
             
-            Page<PackageResponse> responses = packages.map(packageEntity -> PackageResponse.builder()
-                .id(packageEntity.getId())
-                .description(packageEntity.getDescription())
-                .sender(packageEntity.getSender())
-                .recipient(packageEntity.getRecipient())
-                .status(packageEntity.getStatus() != null ? packageEntity.getStatus().name() : "UNKNOWN")
-                .createdAt(packageEntity.getCreatedAt())
-                .updatedAt(packageEntity.getUpdatedAt())
-                .deliveredAt(packageEntity.getDeliveredAt())
-                .build());
+            Page<PackageResponse> responsePage = packages.map(packageEntity -> buildPackageResponse(packageEntity, false));
             
             log.debug("Pacotes paginados encontrados: {} registros (Thread: {})", 
-                     responses.getTotalElements(), Thread.currentThread());
-            return responses;
+                     responsePage.getContent().size(), Thread.currentThread());
+            return responsePage;
                 
         } catch (Exception e) {
             log.error("Erro ao buscar pacotes paginados: {}", e.getMessage(), e);
@@ -248,7 +224,7 @@ public class PackageQueryService {
     }
     
     /**
-     * Busca lista de pacotes paginados de forma assíncrona usando Virtual Threads
+     * Busca lista de pacotes paginada de forma assíncrona
      */
     @Async("persistenceExecutor")
     public CompletableFuture<Page<PackageResponse>> getPackagesPaginatedAsync(String sender, String recipient, Pageable pageable) {
@@ -268,24 +244,49 @@ public class PackageQueryService {
                 packages = packageRepository.findAll(pageable);
             }
             
-            Page<PackageResponse> responses = packages.map(packageEntity -> PackageResponse.builder()
-                .id(packageEntity.getId())
-                .description(packageEntity.getDescription())
-                .sender(packageEntity.getSender())
-                .recipient(packageEntity.getRecipient())
-                .status(packageEntity.getStatus() != null ? packageEntity.getStatus().name() : "UNKNOWN")
-                .createdAt(packageEntity.getCreatedAt())
-                .updatedAt(packageEntity.getUpdatedAt())
-                .deliveredAt(packageEntity.getDeliveredAt())
-                .build());
+            Page<PackageResponse> responsePage = packages.map(packageEntity -> buildPackageResponse(packageEntity, false));
             
             log.debug("Pacotes paginados encontrados assincronamente: {} registros (Thread: {})", 
-                     responses.getTotalElements(), Thread.currentThread());
-            return CompletableFuture.completedFuture(responses);
+                     responsePage.getContent().size(), Thread.currentThread());
+            return CompletableFuture.completedFuture(responsePage);
                 
         } catch (Exception e) {
             log.error("Erro ao buscar pacotes paginados assincronamente: {}", e.getMessage(), e);
             return CompletableFuture.failedFuture(e);
         }
+    }
+    
+    /**
+     * Método auxiliar para construir PackageResponse
+     */
+    private PackageResponse buildPackageResponse(Package packageEntity, boolean includeEvents) {
+        PackageResponse.PackageResponseBuilder responseBuilder = PackageResponse.builder()
+            .id(packageEntity.getId())
+            .description(packageEntity.getDescription())
+            .sender(packageEntity.getSender())
+            .recipient(packageEntity.getRecipient())
+            .status(packageEntity.getStatus() != null ? packageEntity.getStatus().name() : "UNKNOWN")
+            .createdAt(packageEntity.getCreatedAt())
+            .updatedAt(packageEntity.getUpdatedAt())
+            .deliveredAt(packageEntity.getDeliveredAt());
+        
+        if (includeEvents) {
+            List<TrackingEvent> events = trackingEventRepository.findByPackageIdOrderByDateTimeDesc(packageEntity.getId());
+            List<PackageResponse.TrackingEventResponse> eventResponses = events.stream()
+                .map(event -> PackageResponse.TrackingEventResponse.builder()
+                    .pacoteId(event.getPackageId())
+                    .localizacao(event.getLocation())
+                    .descricao(event.getDescription())
+                    .dataHora(event.getDate())
+                    .build())
+                .collect(Collectors.toList());
+            
+            responseBuilder.events(eventResponses);
+            log.debug("Pacote {} encontrado com {} eventos", packageEntity.getId(), eventResponses.size());
+        } else {
+            log.debug("Pacote {} encontrado sem eventos", packageEntity.getId());
+        }
+        
+        return responseBuilder.build();
     }
 } 

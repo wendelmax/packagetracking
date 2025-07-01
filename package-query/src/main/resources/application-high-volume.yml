@@ -78,21 +78,6 @@ spring:
     async:
       request-timeout: 200 # 200ms para requests assíncronos de consulta
 
-  # Configuração de cache otimizada para alto volume
-  cache:
-    type: simple
-    cache-names:
-      - packages
-      - packages-list
-      - packages-paginated
-      - packages-by-status
-      - packages-by-sender
-      - packages-by-recipient
-      - tracking-events
-    simple:
-      time-to-live: 900000 # 15 minutos
-      max-size: 50000
-
 app:
   country-code: BR
 

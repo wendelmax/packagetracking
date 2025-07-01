@@ -34,6 +34,18 @@ services:
     networks:
       - mysql_network
 
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - mysql_network
+
   # RabbitMQ
   rabbitmq:
     image: rabbitmq:3.12-management
@@ -132,15 +144,22 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql2:3306/packagetracking
       SPRING_DATASOURCE_USERNAME: app_read
       SPRING_DATASOURCE_PASSWORD: app_read
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+      RESILIENCE4J_CIRCUITBREAKER_INSTANCES_PACKAGE_CACHE_SLIDINGWINDOWSIZE: 10
+      RESILIENCE4J_CIRCUITBREAKER_INSTANCES_PACKAGE_CACHE_FAILURERATETHRESHOLD: 50
+      RESILIENCE4J_CIRCUITBREAKER_INSTANCES_PACKAGE_CACHE_WAITDURATIONINOPENSTATE: 5000
     command: ["java", "-jar", "package-query/target/package-query-1.0.0.jar", "--spring.profiles.active=query"]
     depends_on:
       - mysql2
+      - redis
     networks:
       - mysql_network
 
 volumes:
   mysql1_data:
   mysql2_data:
+  redis_data:
 
 networks:
   mysql_network:

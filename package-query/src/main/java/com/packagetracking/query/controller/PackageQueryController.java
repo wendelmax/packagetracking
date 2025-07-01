@@ -38,7 +38,9 @@ public class PackageQueryController {
         try {
             boolean includeEventsValue = includeEvents.orElse(true);
             log.info("Buscando detalhes do pacote: {} (incluir eventos: {})", id, includeEventsValue);
-            PackageResponse response = packageQueryService.getPackage(id, includeEventsValue);
+            
+            // Usa o método com cache para pacotes IN_TRANSIT
+            PackageResponse response = packageQueryService.getPackageWithCache(id, includeEventsValue);
             
             return ResponseEntity.ok()
                     .header("X-Package-ID", id)

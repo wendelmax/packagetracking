@@ -1,18 +1,7 @@
-server:
-  port: 8081
-  connection-timeout: 300
-  shutdown: graceful
-  graceful-timeout: 3000
-  # Configurações de thread pool otimizadas para consultas
-  tomcat:
-    threads:
-      max: 300
-      min-spare: 50
-    max-connections: 16384
-    accept-count: 200
-    connection-timeout: 300
-
 spring:
+  config:
+    activate:
+      on-profile: "!test"
   application:
     name: package-query
   datasource:
@@ -21,13 +10,11 @@ spring:
     password: app_read
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
-      # Pool otimizado para consultas de alto volume
-      maximum-pool-size: 150
-      minimum-idle: 30
-      connection-timeout: 300
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
-      leak-detection-threshold: 20000
       validation-timeout: 250
       connection-test-query: SELECT 1
       connection-init-sql: SET SESSION sql_mode='STRICT_TRANS_TABLES'
@@ -35,7 +22,6 @@ spring:
       keepalive-time: 20000
       register-mbeans: true
       pool-name: HikariPool-package-query
-      # Configurações adicionais para performance de leitura
       auto-commit: true
   jpa:
     hibernate:
@@ -44,88 +30,109 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
-        jdbc:
-          batch_size: 100
-          batch_versioned_data: true
-        order_inserts: true
-        order_updates: true
-        cache:
-          use_second_level_cache: false
-          use_query_cache: false
-        show_sql: false
         format_sql: false
-        connection:
-          provider_disables_autocommit: false
-        # Otimizações para performance de consulta
-        jdbc.batch_versioned_data: true
-        jdbc.batch.builder: legacy
-        connection.provider_disables_autocommit: false
-        jdbc.timeout: 500
-        connection.pool_size: 150
-        # Configurações específicas para leitura
-        hibernate.jdbc.fetch_size: 50
-        hibernate.jdbc.batch_size: 100
+        use_sql_comments: false
+        jdbc:
+          fetch_size: 50
+          batch_size: 100
+  # Configuração do Redis
+  redis:
+    host: localhost
+    port: 6379
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+        max-wait: -1ms
   # Configurações de timeout para controllers de consulta
   mvc:
     async:
-      request-timeout: 500 # 500ms para requests assíncronos de consulta
+      request-timeout: 30000
+  # Configuração do servidor web
+  web:
+    resources:
+      add-mappings: false
+  # Configuração do servidor
+  server:
+    port: 8080
     servlet:
       load-on-startup: 1
-  # Configuração de cache otimizada para alto volume
-  cache:
-    type: simple
-    cache-names:
-      - packages
-      - packages-list
-      - packages-paginated
-      - packages-by-status
-      - packages-by-sender
-      - packages-by-recipient
-      - tracking-events
-    simple:
-      time-to-live: 600000 # 10 minutos
-      max-size: 10000
-  config:
-    activate:
-      on-profile: "!test"
 
+# Configurações do Resilience4j Circuit Breaker
+resilience4j:
+  circuitbreaker:
+    instances:
+      package-cache:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 5s
+        permitted-number-of-calls-in-half-open-state: 3
+        slow-call-rate-threshold: 50
+        slow-call-duration-threshold: 2s
+        automatic-transition-from-open-to-half-open-enabled: true
+  timelimiter:
+    instances:
+      package-cache:
+        timeout-duration: 3s
+
+# Configuração de cache otimizada para alto volume
 app:
   country-code: BR
+  cache:
+    packages:
+      ttl: 3600 # 1 hora para pacotes IN_TRANSIT
+      max-size: 1000
+    events:
+      ttl: 300 # 5 minutos para eventos
+      max-size: 500
 
+# Configurações de monitoramento e métricas
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: health,info,metrics,prometheus,circuitbreakers
   endpoint:
     health:
       show-details: when-authorized
-      show-components: always
   metrics:
     export:
       prometheus:
         enabled: true
-    enable:
-      hikaricp: true
-      jvm: true
-      process: true
-      system: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5,0.95,0.99
     tags:
-      application: package-query
-      component: database
-      operation: read
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: 0.1
+    propagation:
+      type: w3c
+    baggage:
+      remote-fields: "x-request-id,x-correlation-id"
+      correlation-fields: "x-request-id,x-correlation-id"
 
+# Configurações de logging
 logging:
-  pattern:
-    console: '{"timestamp":"%d{yyyy-MM-dd HH:mm:ss.SSS}","level":"%level","logger":"%logger{36}","message":"%msg","thread":"%thread","traceId":"%X{traceId}","spanId":"%X{spanId}"}'
   level:
-    com.packagetracking: INFO
-    org.springframework.web: WARN
     com.packagetracking.query: INFO
-
-java:
-  version: "21"
-  virtual-threads:
-    enabled: true
-    max-count: 25000
-    stack-size: "128KB" 
+    org.springframework.cache: DEBUG
+    io.github.resilience4j: DEBUG
+    org.springframework.data.redis: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/package-query.log
+    max-size: 100MB
+    max-history: 30
+  logback:
+    rollingpolicy:
+      max-file-size: 100MB
+      max-history: 30
+      total-size-cap: 3GB 
