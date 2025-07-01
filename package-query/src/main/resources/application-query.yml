@@ -1,0 +1,81 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        jdbc:
+          batch_size: 100
+          batch_versioned_data: true
+        order_inserts: true
+        order_updates: true
+        cache:
+          use_second_level_cache: false
+          use_query_cache: false
+        show_sql: false
+        format_sql: false
+        connection:
+          provider_disables_autocommit: false
+        # Otimizações para performance de consulta
+        jdbc.batch_versioned_data: true
+        jdbc.batch.builder: legacy
+        connection.provider_disables_autocommit: false
+        jdbc.timeout: 15
+        connection.pool_size: 150
+        hibernate.jdbc.fetch_size: 50
+        hibernate.jdbc.batch_size: 100
+  
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://mysql2:3306/packagetracking?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&autoReconnect=true&failOverReadOnly=true&maxReconnects=10&initialTimeout=3&socketTimeout=5000&connectTimeout=3000}
+    username: ${SPRING_DATASOURCE_USERNAME:app_read}
+    password: ${SPRING_DATASOURCE_PASSWORD:app_read}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      # Pool otimizado para consultas de alto volume
+      maximum-pool-size: 150
+      minimum-idle: 30
+      connection-timeout: 5000
+      idle-timeout: 300000
+      max-lifetime: 1800000
+      leak-detection-threshold: 20000
+      validation-timeout: 2000
+      connection-test-query: SELECT 1
+      connection-init-sql: SELECT 1
+      validation-interval: 10000
+      keepalive-time: 20000
+      register-mbeans: true
+      pool-name: HikariPool-package-query
+      auto-commit: true
+      connection-init-sql: SET SESSION sql_mode='STRICT_TRANS_TABLES'
+
+  cache:
+    type: simple
+    cache-names:
+      - packages
+      - packages-list
+      - packages-paginated
+      - packages-by-status
+      - packages-by-sender
+      - packages-by-recipient
+      - tracking-events
+    simple:
+      time-to-live: 600000 # 10 minutos
+      max-size: 10000
+
+app:
+  query:
+    enabled: true
+
+# Configuração do servidor
+server:
+  port: 8080
+  connection-timeout: 3000
+  shutdown: graceful
+        graceful-timeout: 20s
+
+logging:
+  level:
+    com.packagetracking: INFO
+    com.packagetracking.query: INFO 

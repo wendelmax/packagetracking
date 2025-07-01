@@ -1,0 +1,147 @@
+services:
+  # MySQL Master (Escrita)
+  mysql1:
+    image: mysql:8.0
+    container_name: mysql1
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: packagetracking
+    volumes:
+      - ./mysql/master/my.cnf:/etc/mysql/conf.d/my.cnf
+      - ./mysql/master/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - mysql1_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - mysql_network
+
+  # MySQL Slave (Leitura)
+  mysql2:
+    image: mysql:8.0
+    container_name: mysql2
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: packagetracking
+
+    volumes:
+      - ./mysql/slave/my.cnf:/etc/mysql/conf.d/my.cnf
+      - ./mysql/slave/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - mysql2_data:/var/lib/mysql
+    ports:
+      - "3307:3306"
+    depends_on:
+      - mysql1
+    networks:
+      - mysql_network
+
+  # RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - mysql_network
+
+  # Aplicação - Package Ingestion (escrita)
+  package-ingestion:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: package-ingestion
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql1:3306/packagetracking
+      SPRING_DATASOURCE_USERNAME: app_write
+      SPRING_DATASOURCE_PASSWORD: app_write
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
+    command: ["java", "-jar", "package-command/target/package-command-1.0.0.jar", "--spring.profiles.active=docker"]
+    depends_on:
+      - mysql1
+      - rabbitmq
+    networks:
+      - mysql_network
+
+  # Aplicação - Event Ingestion
+  event-ingestion:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: event-ingestion
+    ports:
+      - "8081:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: producer
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql1:3306/packagetracking
+      SPRING_DATASOURCE_USERNAME: app_write
+      SPRING_DATASOURCE_PASSWORD: app_write
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
+    command: ["java", "-jar", "package-command/target/package-command-1.0.0.jar", "--spring.profiles.active=producer"]
+    depends_on:
+      - mysql1
+      - rabbitmq
+    networks:
+      - mysql_network
+
+  # Aplicação - Event Consumer
+  event-consumer:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: event-consumer
+    ports:
+      - "8082:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: consumer
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql2:3306/packagetracking
+      SPRING_DATASOURCE_USERNAME: app_read
+      SPRING_DATASOURCE_PASSWORD: app_read
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
+    command: ["java", "-jar", "package-command/target/package-command-1.0.0.jar", "--spring.profiles.active=consumer"]
+    depends_on:
+      - mysql2
+      - rabbitmq
+    networks:
+      - mysql_network
+
+  # Aplicação - Query Service
+  package-query:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: package-query
+    ports:
+      - "8083:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: query
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql2:3306/packagetracking
+      SPRING_DATASOURCE_USERNAME: app_read
+      SPRING_DATASOURCE_PASSWORD: app_read
+    command: ["java", "-jar", "package-query/target/package-query-1.0.0.jar", "--spring.profiles.active=query"]
+    depends_on:
+      - mysql2
+    networks:
+      - mysql_network
+
+volumes:
+  mysql1_data:
+  mysql2_data:
+
+networks:
+  mysql_network:
+    driver: bridge

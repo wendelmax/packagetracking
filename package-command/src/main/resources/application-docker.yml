@@ -1,0 +1,106 @@
+spring:
+  # Configuração JPA
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        jdbc:
+          batch_size: 50
+          batch_versioned_data: true
+        order_inserts: true
+        order_updates: true
+        cache:
+          use_second_level_cache: false
+          use_query_cache: false
+        show_sql: false
+        format_sql: false
+        connection:
+          provider_disables_autocommit: false
+        # Otimizações para performance
+        jdbc.batch_versioned_data: true
+        jdbc.batch.builder: legacy
+        connection.provider_disables_autocommit: false
+        jdbc.timeout: 30
+        connection.pool_size: 100
+  
+  # Configuração do banco de dados
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://mysql1:3306/packagetracking?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&autoReconnect=true&failOverReadOnly=false&maxReconnects=10&initialTimeout=5&socketTimeout=10000&connectTimeout=5000}
+    username: ${SPRING_DATASOURCE_USERNAME:app_write}
+    password: ${SPRING_DATASOURCE_PASSWORD:app_write}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      # Pool otimizado para alto volume
+      maximum-pool-size: 100
+      minimum-idle: 20
+      connection-timeout: 10000
+      idle-timeout: 300000
+      max-lifetime: 1800000
+      leak-detection-threshold: 30000
+      validation-timeout: 3000
+      connection-test-query: SELECT 1
+      connection-init-sql: SELECT 1
+      validation-interval: 15000
+      keepalive-time: 30000
+      register-mbeans: true
+      pool-name: HikariPool-package-command
+      auto-commit: true
+      connection-init-sql: SET SESSION sql_mode='STRICT_TRANS_TABLES'
+  
+  # Configuração RabbitMQ
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:rabbitmq}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
+    connection-timeout: 10000
+    requested-heartbeat: 30
+    connection:
+      timeout: 10000
+      shutdown-timeout: 10000
+    template:
+      retry:
+        enabled: true
+        initial-interval: 500
+        max-attempts: 2
+        max-interval: 2000
+        multiplier: 1.0
+    listener:
+      simple:
+        concurrency: 10
+        max-concurrency: 20
+        default-requeue-rejected: false
+        auto-startup: true
+        prefetch: 200
+        retry:
+          enabled: true
+          initial-interval: 1000
+          max-attempts: 2
+          max-interval: 2000
+          multiplier: 1.0
+
+# Configuração da aplicação
+app:
+  # Ativar todos os componentes
+  jpa:
+    enabled: true
+  producer:
+    enabled: true
+  consumer:
+    enabled: true
+
+# Configuração do servidor
+server:
+  port: 8080
+  connection-timeout: 5000
+  shutdown: graceful
+  graceful-timeout: 30s
+
+# Logging
+logging:
+  level:
+    com.packagetracking: INFO
+    org.springframework.jpa: INFO 

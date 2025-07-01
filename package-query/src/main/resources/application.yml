@@ -1,0 +1,131 @@
+server:
+  port: 8081
+  connection-timeout: 300
+  shutdown: graceful
+  graceful-timeout: 3000
+  # Configurações de thread pool otimizadas para consultas
+  tomcat:
+    threads:
+      max: 300
+      min-spare: 50
+    max-connections: 16384
+    accept-count: 200
+    connection-timeout: 300
+
+spring:
+  application:
+    name: package-query
+  datasource:
+    url: jdbc:mysql://localhost:3307/packagetracking?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&autoReconnect=true&failOverReadOnly=true&maxReconnects=10&initialTimeout=300&socketTimeout=500&connectTimeout=300&cachePrepStmts=true&useServerPrepStmts=true&rewriteBatchedStatements=true
+    username: app_read
+    password: app_read
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      # Pool otimizado para consultas de alto volume
+      maximum-pool-size: 150
+      minimum-idle: 30
+      connection-timeout: 300
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 20000
+      validation-timeout: 250
+      connection-test-query: SELECT 1
+      connection-init-sql: SET SESSION sql_mode='STRICT_TRANS_TABLES'
+      validation-interval: 10000
+      keepalive-time: 20000
+      register-mbeans: true
+      pool-name: HikariPool-package-query
+      # Configurações adicionais para performance de leitura
+      auto-commit: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        jdbc:
+          batch_size: 100
+          batch_versioned_data: true
+        order_inserts: true
+        order_updates: true
+        cache:
+          use_second_level_cache: false
+          use_query_cache: false
+        show_sql: false
+        format_sql: false
+        connection:
+          provider_disables_autocommit: false
+        # Otimizações para performance de consulta
+        jdbc.batch_versioned_data: true
+        jdbc.batch.builder: legacy
+        connection.provider_disables_autocommit: false
+        jdbc.timeout: 500
+        connection.pool_size: 150
+        # Configurações específicas para leitura
+        hibernate.jdbc.fetch_size: 50
+        hibernate.jdbc.batch_size: 100
+  # Configurações de timeout para controllers de consulta
+  mvc:
+    async:
+      request-timeout: 500 # 500ms para requests assíncronos de consulta
+    servlet:
+      load-on-startup: 1
+  # Configuração de cache otimizada para alto volume
+  cache:
+    type: simple
+    cache-names:
+      - packages
+      - packages-list
+      - packages-paginated
+      - packages-by-status
+      - packages-by-sender
+      - packages-by-recipient
+      - tracking-events
+    simple:
+      time-to-live: 600000 # 10 minutos
+      max-size: 10000
+  config:
+    activate:
+      on-profile: "!test"
+
+app:
+  country-code: BR
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+      show-components: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    enable:
+      hikaricp: true
+      jvm: true
+      process: true
+      system: true
+    tags:
+      application: package-query
+      component: database
+      operation: read
+
+logging:
+  pattern:
+    console: '{"timestamp":"%d{yyyy-MM-dd HH:mm:ss.SSS}","level":"%level","logger":"%logger{36}","message":"%msg","thread":"%thread","traceId":"%X{traceId}","spanId":"%X{spanId}"}'
+  level:
+    com.packagetracking: INFO
+    org.springframework.web: WARN
+    com.packagetracking.query: INFO
+
+java:
+  version: "21"
+  virtual-threads:
+    enabled: true
+    max-count: 25000
+    stack-size: "128KB" 

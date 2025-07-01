@@ -1,0 +1,91 @@
+spring:
+  profiles:
+    active: test
+  
+  datasource:
+    master:
+      url: jdbc:tc:mysql:8.0:///packagetracking?TC_INITSCRIPT=init-master.sql
+      username: app_write
+      password: app_write
+      driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+    
+    slave:
+      url: jdbc:tc:mysql:8.0:///packagetracking?TC_INITSCRIPT=init-slave.sql
+      username: app_read
+      password: app_read
+              driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+  
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+  
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    virtual-host: /
+  
+  cache:
+    type: simple
+    cache-names:
+      - packages
+      - tracking-events
+    simple:
+      time-to-live: 300000
+
+logging:
+  level:
+    com.packagetracking: DEBUG
+    org.springframework: INFO
+    org.hibernate: WARN
+    org.testcontainers: INFO
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+server:
+  port: 0
+
+test:
+  timeout:
+    default: 30s
+    long: 60s
+    short: 10s
+  
+  containers:
+    mysql:
+      image: mysql:8.0
+      timeout: 60s
+    rabbitmq:
+      image: rabbitmq:3-management
+      timeout: 30s
+  
+  data:
+    packages:
+      count: 10
+    events:
+      count: 5
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      simple:
+        enabled: true
+
+security:
+  basic:
+    enabled: false
+  oauth2:
+    enabled: false 

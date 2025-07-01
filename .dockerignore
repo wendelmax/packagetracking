@@ -1,0 +1,35 @@
+# Arquivos do Git
+.git
+.gitignore
+.gitattributes
+
+# Arquivos de IDE
+.idea
+.vscode
+*.iml
+
+# Arquivos de build
+target/
+*/target/
+*.jar
+*.war
+
+# Logs
+*.log
+logs/
+
+# Arquivos temporários
+*.tmp
+*.temp
+
+# Documentação
+*.md
+docs/
+
+# Docker
+docker/
+Dockerfile*
+docker-compose*
+
+# Outros
+newrelicapikey 

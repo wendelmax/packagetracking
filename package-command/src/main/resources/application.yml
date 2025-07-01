@@ -1,0 +1,269 @@
+server:
+  port: 8080
+  connection-timeout: 500
+  shutdown: graceful
+  graceful-timeout: 5000
+  # Configurações de thread pool para alto volume
+  tomcat:
+    threads:
+      max: 200
+      min-spare: 20
+    max-connections: 8192
+    accept-count: 100
+    connection-timeout: 500
+
+spring:
+  application:
+    name: package-command
+  
+  datasource:
+    url: jdbc:mysql://localhost:3306/packagetracking?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&autoReconnect=true&failOverReadOnly=false&maxReconnects=10&initialTimeout=500&socketTimeout=1000&connectTimeout=500&cachePrepStmts=true&useServerPrepStmts=true&rewriteBatchedStatements=true
+    username: app_write
+    password: app_write
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 100
+      minimum-idle: 20
+      connection-timeout: 500
+      idle-timeout: 300000
+      max-lifetime: 1800000
+      leak-detection-threshold: 30000
+      validation-timeout: 200
+      connection-test-query: SELECT 1
+      connection-init-sql: SELECT 1
+      validation-interval: 15000
+      keepalive-time: 30000
+      register-mbeans: true
+      pool-name: HikariPool-package-command
+      auto-commit: true
+      connection-init-sql: SET SESSION sql_mode='STRICT_TRANS_TABLES'
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        jdbc:
+          batch_size: 50
+          batch_versioned_data: true
+        order_inserts: true
+        order_updates: true
+        cache:
+          use_second_level_cache: false
+          use_query_cache: false
+        show_sql: false
+        format_sql: false
+        connection:
+          provider_disables_autocommit: false
+        jdbc.batch_versioned_data: true
+        jdbc.batch.builder: legacy
+        connection.provider_disables_autocommit: false
+        jdbc.timeout: 1000
+        connection.pool_size: 100
+
+  # Configurações de timeout para controllers
+  mvc:
+    async:
+      request-timeout: 1000 # 1 segundo para requests assíncronos
+    servlet:
+      load-on-startup: 1
+
+  # Configurações de timeout para WebClient (se usado)
+  webflux:
+    base-path: /api
+    static-path-pattern: /static/**
+
+app:
+  country-code: BR
+  
+  modules:
+    package-controllers-enabled: ${PACKAGE_CONTROLLERS_ENABLED:true}
+    tracking-producer-enabled: ${TRACKING_PRODUCER_ENABLED:true}
+    tracking-consumer-enabled: ${TRACKING_CONSUMER_ENABLED:true}
+  
+  fixed-holidays:
+    - "01-01"
+    - "04-21"
+    - "05-01"
+    - "09-07"
+    - "10-12"
+    - "11-02"
+    - "11-15"
+    - "12-25"
+
+external:
+  apis:
+    holiday:
+      base-url: https://date.nager.at
+      timeout:
+        connect: 300
+        read: 500
+        write: 300
+    dog:
+      base-url: https://dogapi.dog
+      timeout:
+        connect: 200
+        read: 300
+        write: 200
+
+feign:
+  client:
+    config:
+      default:
+        connect-timeout: 300
+        read-timeout: 500
+        logger-level: basic
+        # Configurações adicionais para alto volume
+        retryer: com.netflix.feign.Retryer.Default
+        error-decoder: com.netflix.feign.codec.ErrorDecoder.Default
+        request-interceptors:
+          - com.packagetracking.command.config.HttpHeaderInterceptor
+      holiday-api:
+        connect-timeout: 300
+        read-timeout: 500
+        logger-level: basic
+      dog-api:
+        connect-timeout: 200
+        read-timeout: 300
+        logger-level: basic
+  circuitbreaker:
+    enabled: true
+  compression:
+    request:
+      enabled: true
+      mime-types: text/xml,application/xml,application/json
+      min-request-size: 2048
+    response:
+      enabled: true
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      date-nager-api:
+        sliding-window-size: 50
+        minimum-number-of-calls: 20
+        permitted-number-of-calls-in-half-open-state: 10
+        automatic-transition-from-open-to-half-open-enabled: true
+        wait-duration-in-open-state: 2000
+        failure-rate-threshold: 20
+        slow-call-rate-threshold: 50
+        slow-call-duration-threshold: 500
+      dog-api:
+        sliding-window-size: 30
+        minimum-number-of-calls: 15
+        permitted-number-of-calls-in-half-open-state: 8
+        automatic-transition-from-open-to-half-open-enabled: true
+        wait-duration-in-open-state: 1000
+        failure-rate-threshold: 25
+        slow-call-rate-threshold: 60
+        slow-call-duration-threshold: 300
+  retry:
+    instances:
+      date-nager-api:
+        max-attempts: 1
+        wait-duration: 50
+        retry-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+          - org.springframework.web.client.ResourceAccessException
+      dog-api:
+        max-attempts: 1
+        wait-duration: 30
+        retry-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+  timelimiter:
+    instances:
+      date-nager-api:
+        timeout-duration: 500
+        cancel-running-future: true
+      dog-api:
+        timeout-duration: 300
+        cancel-running-future: true
+  ratelimiter:
+    instances:
+      date-nager-api:
+        limit-for-period: 100
+        limit-refresh-period: 1000
+        timeout-duration: 100
+      dog-api:
+        limit-for-period: 200
+        limit-refresh-period: 1000
+        timeout-duration: 50
+
+java:
+  version: "21"
+  virtual-threads:
+    enabled: true
+    max-count: 20000
+    stack-size: "128KB"
+
+rabbitmq:
+  config:
+    address: ${RABBIT_MQ_ADDRESS:amqp://localhost:5672/packagetracking}
+  host: localhost
+  port: 5672
+  connection-timeout: 500
+  requested-heartbeat: 30
+  connection:
+    timeout: 500
+    shutdown-timeout: 500
+  template:
+    retry:
+      enabled: true
+      initial-interval: 100
+      max-attempts: 1
+      max-interval: 200
+      multiplier: 1.0
+  listener:
+    simple:
+      concurrency: ${RABBIT_MQ_LISTENER_CONCURRENCY:10}
+      max-concurrency: ${RABBIT_MQ_LISTENER_MAX_CONCURRENCY:20}
+      default-requeue-rejected: ${RABBIT_MQ_LISTENER_DEFAULT_REQUEUE_REJECTED:false}
+      auto-startup: ${RABBIT_MQ_LISTENER_AUTO_STARTUP:true}
+      prefetch: ${RABBIT_MQ_LISTENER_PREFETCH:200}
+      retry:
+        enabled: ${RABBIT_MQ_LISTENER_ENABLED:true}
+        initial-interval: ${RABBIT_MQ_LISTENER_INITIAL_INTERVAL:100}
+        max-attempts: ${RABBIT_MQ_LISTENER_MAX_ATTEMPTS:1}
+        max-interval: ${RABBIT_MQ_LISTENER_MAX_INTERVAL:200}
+        multiplier: ${RABBIT_MQ_LISTENER_MULTIPLIER:1}
+
+queue:
+  countries: ${QUEUE_COUNTRIES:br,us,ca,mx,ar}
+  entity: ${QUEUE_ENTITY:package}
+  qualifier: ${QUEUE_QUALIFIER:command}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+      show-components: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    enable:
+      hikaricp: true
+      jvm: true
+      process: true
+      system: true
+    tags:
+      application: package-command
+      component: database
+      operation: write
+
+logging:
+  pattern:
+    console: '{"timestamp":"%d{yyyy-MM-dd HH:mm:ss.SSS}","level":"%level","logger":"%logger{36}","message":"%msg","thread":"%thread","traceId":"%X{traceId}","spanId":"%X{spanId}"}'
+  level:
+    com.packagetracking: INFO
+    org.springframework.web: WARN
+    com.packagetracking.command.client: WARN
+    com.packagetracking.command.config: WARN 
