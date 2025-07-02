@@ -6,8 +6,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
-import java.util.concurrent.Executor;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -18,34 +16,19 @@ class VirtualThreadConfigTest {
     private final VirtualThreadConfig virtualThreadConfig = new VirtualThreadConfig();
 
     @Test
-    void persistenceExecutor_ShouldBeCreated() {
-        // When
-        Executor executor = virtualThreadConfig.persistenceExecutor();
-
-        // Then
-        assertNotNull(executor);
-        assertTrue(executor instanceof java.util.concurrent.ExecutorService);
+    void virtualThreadConfig_ShouldBeCreated() {
+        // When & Then
+        assertNotNull(virtualThreadConfig);
     }
 
     @Test
-    void queryExecutor_ShouldBeCreated() {
-        // When
-        Executor executor = virtualThreadConfig.queryExecutor();
-
-        // Then
-        assertNotNull(executor);
-        assertTrue(executor instanceof java.util.concurrent.ExecutorService);
-    }
-
-    @Test
-    void persistenceExecutor_ShouldBeDifferentFromQueryExecutor() {
-        // When
-        Executor persistenceExecutor = virtualThreadConfig.persistenceExecutor();
-        Executor queryExecutor = virtualThreadConfig.queryExecutor();
-
-        // Then
-        assertNotNull(persistenceExecutor);
-        assertNotNull(queryExecutor);
-        assertNotSame(persistenceExecutor, queryExecutor);
+    void virtualThreadConfig_ShouldBeEmpty() {
+        // Given
+        Class<?> configClass = virtualThreadConfig.getClass();
+        
+        // When & Then
+        // Verifica que não há métodos públicos além dos métodos padrão
+        assertTrue(configClass.getDeclaredMethods().length <= 1, 
+            "VirtualThreadConfig não deve ter métodos públicos além dos métodos padrão");
     }
 }

@@ -41,9 +41,6 @@ spring:
         max-idle: ${SPRING_REDIS_LETTUCE_MAX_IDLE:8}
         min-idle: ${SPRING_REDIS_LETTUCE_MIN_IDLE:0}
         max-wait: ${SPRING_REDIS_LETTUCE_MAX_WAIT:-1ms}
-  mvc:
-    async:
-      request-timeout: ${MVC_ASYNC_REQUEST_TIMEOUT:30000}
   web:
     resources:
       add-mappings: false

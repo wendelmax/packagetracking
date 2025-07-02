@@ -9,10 +9,10 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -88,21 +88,25 @@ class PackageQueryPerformanceTest {
     }
 
     @Test
-    void getPackages_ConcurrentRequests_PerformanceTest() throws InterruptedException, ExecutionException, TimeoutException {
+    void getPackages_ConcurrentRequests_PerformanceTest() throws Exception {
         // Given
         int concurrentRequests = 50;
         long startTime = System.currentTimeMillis();
+        ExecutorService executor = Executors.newFixedThreadPool(10);
 
         // When
-        List<CompletableFuture<List<PackageResponse>>> futures = new java.util.ArrayList<>();
+        List<Future<List<PackageResponse>>> futures = new java.util.ArrayList<>();
         
         for (int i = 0; i < concurrentRequests; i++) {
-            CompletableFuture<List<PackageResponse>> future = packageQueryService.getPackagesAsync(null, null);
+            Future<List<PackageResponse>> future = executor.submit(() -> 
+                packageQueryService.getPackages(null, null));
             futures.add(future);
         }
 
         // Aguardar todas as requisições
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get(30, TimeUnit.SECONDS);
+        for (Future<List<PackageResponse>> future : futures) {
+            future.get(30, TimeUnit.SECONDS);
+        }
 
         long endTime = System.currentTimeMillis();
         long totalTime = endTime - startTime;
@@ -116,12 +120,14 @@ class PackageQueryPerformanceTest {
         System.out.println("Requests per second: " + (1000.0 / averageTime));
 
         // Verificar que todas as requisições foram completadas
-        for (CompletableFuture<List<PackageResponse>> future : futures) {
+        for (Future<List<PackageResponse>> future : futures) {
             assertTrue(future.isDone());
             assertNotNull(future.get());
         }
 
         // Assert que o tempo médio é razoável (menos de 200ms por requisição concorrente)
         assertTrue(averageTime < 200, "Tempo médio muito alto para requisições concorrentes: " + averageTime + "ms");
+        
+        executor.shutdown();
     }
 }

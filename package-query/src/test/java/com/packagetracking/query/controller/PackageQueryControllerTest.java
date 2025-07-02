@@ -20,8 +20,6 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -150,45 +148,6 @@ class PackageQueryControllerTest {
     }
 
     @Test
-    void getPackageAsync_WithEvents_Success() throws ExecutionException, InterruptedException {
-        // Given
-        CompletableFuture<PackageResponse> future = CompletableFuture.completedFuture(packageResponse);
-        when(packageQueryService.getPackageAsync("pacote-12345", true)).thenReturn(future);
-
-        // When
-        CompletableFuture<ResponseEntity<PackageResponse>> responseFuture = 
-            packageQueryController.getPackageAsync("pacote-12345", Optional.of(true));
-        ResponseEntity<PackageResponse> response = responseFuture.get();
-
-        // Then
-        assertNotNull(response);
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals("pacote-12345", response.getBody().getId());
-
-        verify(packageQueryService).getPackageAsync("pacote-12345", true);
-    }
-
-    @Test
-    void getPackageAsync_PackageNotFound_ReturnsNotFound() throws ExecutionException, InterruptedException {
-        // Given
-        CompletableFuture<PackageResponse> future = CompletableFuture.failedFuture(new RuntimeException("Pacote não encontrado: pacote-inexistente"));
-        when(packageQueryService.getPackageAsync("pacote-inexistente", true)).thenReturn(future);
-
-        // When
-        CompletableFuture<ResponseEntity<PackageResponse>> responseFuture = 
-            packageQueryController.getPackageAsync("pacote-inexistente", Optional.of(true));
-        ResponseEntity<PackageResponse> response = responseFuture.get();
-
-        // Then
-        assertNotNull(response);
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertNull(response.getBody());
-
-        verify(packageQueryService).getPackageAsync("pacote-inexistente", true);
-    }
-
-    @Test
     void getPackages_WithSenderFilter_Success() {
         // Given
         List<PackageResponse> packages = Arrays.asList(packageResponse);
@@ -282,27 +241,6 @@ class PackageQueryControllerTest {
     }
 
     @Test
-    void getPackagesAsync_WithFilters_Success() throws ExecutionException, InterruptedException {
-        // Given
-        List<PackageResponse> packages = Arrays.asList(packageResponse);
-        CompletableFuture<List<PackageResponse>> future = CompletableFuture.completedFuture(packages);
-        when(packageQueryService.getPackagesAsync("Loja ABC", null)).thenReturn(future);
-
-        // When
-        CompletableFuture<ResponseEntity<List<PackageResponse>>> responseFuture = 
-            packageQueryController.getPackagesAsync(Optional.of("Loja ABC"), Optional.empty());
-        ResponseEntity<List<PackageResponse>> response = responseFuture.get();
-
-        // Then
-        assertNotNull(response);
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals(1, response.getBody().size());
-
-        verify(packageQueryService).getPackagesAsync("Loja ABC", null);
-    }
-
-    @Test
     void getPackagesPaginated_WithFilters_Success() {
         // Given
         when(packageQueryService.getPackagesPaginated(eq("Loja ABC"), eq(null), any(Pageable.class))).thenReturn(packagePage);
@@ -319,26 +257,6 @@ class PackageQueryControllerTest {
         assertEquals(1, response.getBody().getContent().size());
 
         verify(packageQueryService).getPackagesPaginated(eq("Loja ABC"), eq(null), any(Pageable.class));
-    }
-
-    @Test
-    void getPackagesPaginatedAsync_WithFilters_Success() throws ExecutionException, InterruptedException {
-        // Given
-        CompletableFuture<Page<PackageResponse>> future = CompletableFuture.completedFuture(packagePage);
-        when(packageQueryService.getPackagesPaginatedAsync(eq("Loja ABC"), eq(null), any(Pageable.class))).thenReturn(future);
-
-        // When
-        CompletableFuture<ResponseEntity<Page<PackageResponse>>> responseFuture = 
-            packageQueryController.getPackagesPaginatedAsync(Optional.of("Loja ABC"), Optional.empty(), 0, 20);
-        ResponseEntity<Page<PackageResponse>> response = responseFuture.get();
-
-        // Then
-        assertNotNull(response);
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals(1, response.getBody().getTotalElements());
-
-        verify(packageQueryService).getPackagesPaginatedAsync(eq("Loja ABC"), eq(null), any(Pageable.class));
     }
 
 }
