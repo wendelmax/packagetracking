@@ -6,8 +6,8 @@ services:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: packagetracking
     volumes:
-      - ./mysql/master/my.cnf:/etc/mysql/conf.d/my.cnf
-      - ./mysql/master/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./docker/mysql/master/my.cnf:/etc/mysql/conf.d/my.cnf
+      - ./docker/mysql/master/init.sql:/docker-entrypoint-initdb.d/init.sql
       - mysql1_data:/var/lib/mysql
     ports:
       - "3306:3306"
@@ -22,8 +22,8 @@ services:
       MYSQL_DATABASE: packagetracking
 
     volumes:
-      - ./mysql/slave/my.cnf:/etc/mysql/conf.d/my.cnf
-      - ./mysql/slave/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./docker/mysql/slave/my.cnf:/etc/mysql/conf.d/my.cnf
+      - ./docker/mysql/slave/init.sql:/docker-entrypoint-initdb.d/init.sql
       - mysql2_data:/var/lib/mysql
     ports:
       - "3307:3306"
@@ -65,7 +65,7 @@ services:
 
   package-ingestion:
     build:
-      context: ..
+      context: .
       dockerfile: docker/build/Dockerfile.command
     container_name: package-ingestion
     ports:
@@ -100,7 +100,7 @@ services:
 
   event-ingestion:
     build:
-      context: ..
+      context: .
       dockerfile: docker/build/Dockerfile.command
     container_name: event-ingestion
     ports:
@@ -130,7 +130,7 @@ services:
 
   event-consumer:
     build:
-      context: ..
+      context: .
       dockerfile: docker/build/Dockerfile.command
     container_name: event-consumer
     ports:
@@ -165,7 +165,7 @@ services:
 
   package-query:
     build:
-      context: ..
+      context: .
       dockerfile: docker/build/Dockerfile.query
     container_name: package-query
     ports:

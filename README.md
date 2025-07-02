@@ -39,6 +39,9 @@ O sistema é composto pelos seguintes serviços:
 - Processamento assíncrono
 - Management UI na porta 15672
 
+### Redis
+- Cache de dados que demoram para mudar
+
 ## Pré-requisitos
 
 - Java 21
@@ -53,31 +56,6 @@ O sistema é composto pelos seguintes serviços:
 # Na raiz do projeto
 cd docker
 docker-compose up -d
-```
-
-### Opção 2: Build e Run Manual
-
-```bash
-# Build do projeto
-./build-and-run.sh
-
-# Ou manualmente:
-mvn clean install
-cd docker
-docker-compose up -d
-```
-
-### Verificar se tudo está rodando
-
-```bash
-# Verificar containers
-docker ps
-
-# Verificar logs
-docker logs package-service
-docker logs event-producer
-docker logs event-consumer
-docker logs package-query
 ```
 
 ## Documentação da API (Swagger/OpenAPI)
@@ -104,69 +82,6 @@ docker logs package-query
 - **API Docs**: http://localhost:8083/api-docs
 - **Descrição**: APIs para consulta de pacotes e eventos de rastreamento
 
-## Endpoints da API
-
-### Package Service (http://localhost:8080)
-
-#### Criar Pacote
-```bash
-POST /api/v1/packages
-Content-Type: application/json
-
-{
-  "trackingCode": "PKG123456789",
-  "description": "Livros para entrega",
-  "sender": "Loja ABC",
-  "recipient": "João Silva",
-  "estimatedDeliveryDate": "2025-01-24"
-}
-```
-
-#### Atualizar Pacote
-```bash
-PUT /api/v1/packages/{id}
-Content-Type: application/json
-
-{
-  "description": "Livros atualizados",
-  "estimatedDeliveryDate": "2025-01-25"
-}
-```
-
-#### Cancelar Pacote
-```bash
-DELETE /api/v1/packages/{id}
-```
-
-#### Criar Evento de Tracking
-```bash
-POST /api/v1/tracking-events
-Content-Type: application/json
-
-{
-  "packageId": 1,
-  "eventType": "IN_TRANSIT",
-  "description": "Pacote em trânsito",
-  "location": "Centro de Distribuição São Paulo"
-}
-```
-
-### Package Query (http://localhost:8083)
-
-#### Consultar Pacote
-```bash
-GET /api/v1/packages/{id}
-```
-
-#### Listar Pacotes
-```bash
-GET /api/v1/packages?page=0&size=20
-```
-
-#### Consultar Eventos de um Pacote
-```bash
-GET /api/v1/packages/{id}/events
-```
 
 ## Monitoramento
 
@@ -241,7 +156,6 @@ ENDPOINTS_TYPE=package
 ```
 
 
-
 ## Desenvolvimento
 
 ### Estrutura do Projeto
@@ -271,7 +185,7 @@ O projeto utiliza uma abordagem balanceada com um único `application.yml` por m
 - **event-consumer**: `PERSISTENCE_ENABLED=true`, `QUEUES_ENABLED=true`, `ENDPOINTS_TYPE=none` (Consumer)
 
 **Regras Importantes:**
-- **Producer e Consumer são mutuamente exclusivos**: Não podem estar habilitados simultaneamente
+- **Producer e Consumer são exclusivos**: Não podem estar habilitados simultaneamente
 - **Producer**: Habilitado apenas quando `endpoints=events`
 - **Consumer**: Habilitado apenas quando `endpoints=none`
 
@@ -310,8 +224,6 @@ POST http://localhost:8083/api/database/switch/slave
 
 #### Configuração de Usuários MySQL
 
-O script `build-and-run.sh` cria automaticamente os usuários necessários:
-
 ```bash
 # Master (mysql1) - Escritas
 app_write: Todas as operações
@@ -343,28 +255,12 @@ curl http://localhost:8083/api/database/health
 ## Testes de Performance
 
 Para executar testes de performance completos:
+Subi a aplicação com docker compose e depois rode o scritp abaixo.
 
 ```bash
 cd performance-tests
 ./run_performance_test.sh
 ```
-
-O script inclui:
-- Geração automática de dados de teste
-- Execução de testes de carga com k6
-- Coleta de métricas via Spring Boot Actuator
-- Geração de relatório HTML completo
-- **Uso automático de configurações** via variáveis de ambiente
-
-### Configurações de Performance
-
-O script usa automaticamente configurações otimizadas via variáveis de ambiente:
-- **Pool de conexões**: Configurado via `HIKARI_MAXIMUM_POOL_SIZE`
-- **Threads**: Configurado via `TOMCAT_THREADS_MAX`
-- **Timeout**: Configurado via `SERVER_CONNECTION_TIMEOUT`
-- **Virtual Threads**: Configurado via `JAVA_VIRTUAL_THREADS_MAX_COUNT`
-- **Cache**: Configurações otimizadas para Redis
-- **Circuit Breaker**: Configurações para alta disponibilidade
 
 ### Docker Compose
 
@@ -373,12 +269,3 @@ O script usa o `docker-compose.yml` padrão que:
 - Reconstrói as imagens com `--build` para garantir configurações corretas
 - Otimiza para performance com configurações específicas
 - Garante consistência entre todos os containers
-
-### Limpeza de Containers
-
-```bash
-# Limpar containers de performance
-cd docker
-docker compose -f docker-compose.performance.yml down --volumes --remove-orphans
-docker rmi $(docker images -q packagetracking_* 2>/dev/null) 2>/dev/null || true
-```
