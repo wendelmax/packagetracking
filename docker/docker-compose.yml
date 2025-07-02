@@ -63,7 +63,7 @@ services:
   package-ingestion:
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: docker/build/Dockerfile.command
     container_name: package-ingestion
     ports:
       - "8080:8080"
@@ -87,7 +87,7 @@ services:
   event-ingestion:
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: docker/build/Dockerfile.command
     container_name: event-ingestion
     ports:
       - "8081:8080"
@@ -111,7 +111,7 @@ services:
   event-consumer:
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: docker/build/Dockerfile.command
     container_name: event-consumer
     ports:
       - "8082:8080"
@@ -135,7 +135,7 @@ services:
   package-query:
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: docker/build/Dockerfile.query
     container_name: package-query
     ports:
       - "8083:8080"

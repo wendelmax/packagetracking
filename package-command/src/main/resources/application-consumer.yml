@@ -9,11 +9,11 @@ spring:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
   
-  # Configuração do banco de dados (slave para leitura)
+  # Configuração do banco de dados (master para escrita)
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3307/packagetracking}
-    username: ${SPRING_DATASOURCE_USERNAME:app_read}
-    password: ${SPRING_DATASOURCE_PASSWORD:app_read}
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/packagetracking}
+    username: ${SPRING_DATASOURCE_USERNAME:app_write}
+    password: ${SPRING_DATASOURCE_PASSWORD:app_write}
     driver-class-name: com.mysql.cj.jdbc.Driver
   
   # Configuração RabbitMQ

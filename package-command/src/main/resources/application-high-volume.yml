@@ -33,14 +33,13 @@ spring:
       leak-detection-threshold: 15000
       validation-timeout: 100
       connection-test-query: SELECT 1
-      connection-init-sql: SELECT 1
-      validation-interval: 10000
-      keepalive-time: 15000
+      connection-init-sql: "SELECT 1"
+      validation-interval: 15000
+      keepalive-time: 30000
       register-mbeans: true
-      pool-name: HikariPool-package-command-high-volume
+      pool-name: HikariPool-package-command
       auto-commit: true
-      connection-init-sql: SET SESSION sql_mode='STRICT_TRANS_TABLES'
-  
+
   jpa:
     hibernate:
       ddl-auto: update

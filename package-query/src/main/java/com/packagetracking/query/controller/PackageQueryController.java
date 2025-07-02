@@ -77,7 +77,7 @@ public class PackageQueryController {
         
         return packageQueryService.getPackageAsync(id, includeEventsValue)
             .orTimeout(500, TimeUnit.MILLISECONDS)
-            .thenApply(response -> ResponseEntity.ok(response))
+            .thenApply(ResponseEntity::ok)
             .exceptionally(throwable -> {
                 log.error("Erro ao buscar detalhes do pacote assincronamente {}: {}", id, throwable.getMessage(), throwable);
                 if (throwable.getCause() instanceof RuntimeException && 
@@ -198,7 +198,7 @@ public class PackageQueryController {
         
         return packageQueryService.getPackagesPaginatedAsync(sender.orElse(null), recipient.orElse(null), pageable)
             .orTimeout(1000, TimeUnit.MILLISECONDS)
-            .thenApply(response -> ResponseEntity.ok(response))
+            .thenApply(ResponseEntity::ok)
             .exceptionally(throwable -> {
                 log.error("Erro ao buscar lista de pacotes paginada assincronamente: {}", throwable.getMessage(), throwable);
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();

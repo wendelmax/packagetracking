@@ -16,6 +16,10 @@ spring:
   application:
     name: package-command
   
+  # Configuração global do Jackson para não serializar campos null
+  jackson:
+    default-property-inclusion: non_null
+  
   datasource:
     url: jdbc:mysql://localhost:3306/packagetracking?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&autoReconnect=true&failOverReadOnly=false&maxReconnects=10&initialTimeout=500&socketTimeout=1000&connectTimeout=500&cachePrepStmts=true&useServerPrepStmts=true&rewriteBatchedStatements=true
     username: app_write
@@ -28,16 +32,15 @@ spring:
       idle-timeout: 300000
       max-lifetime: 1800000
       leak-detection-threshold: 30000
-      validation-timeout: 200
+      validation-timeout: 250
       connection-test-query: SELECT 1
-      connection-init-sql: SELECT 1
+      connection-init-sql: "SELECT 1"
       validation-interval: 15000
       keepalive-time: 30000
       register-mbeans: true
       pool-name: HikariPool-package-command
       auto-commit: true
-      connection-init-sql: SET SESSION sql_mode='STRICT_TRANS_TABLES'
-  
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -58,7 +61,6 @@ spring:
         connection:
           provider_disables_autocommit: false
         jdbc.batch_versioned_data: true
-        jdbc.batch.builder: legacy
         connection.provider_disables_autocommit: false
         jdbc.timeout: 1000
         connection.pool_size: 100
@@ -82,6 +84,7 @@ app:
     package-controllers-enabled: ${PACKAGE_CONTROLLERS_ENABLED:true}
     tracking-producer-enabled: ${TRACKING_PRODUCER_ENABLED:true}
     tracking-consumer-enabled: ${TRACKING_CONSUMER_ENABLED:true}
+    package-query-enabled: true
   
   fixed-holidays:
     - "01-01"
@@ -92,6 +95,11 @@ app:
     - "11-02"
     - "11-15"
     - "12-25"
+
+  # Configurações da DLQ e política de retry
+  dlq:
+    max-retry-attempts: 3
+    retry-delay-minutes: 5
 
 external:
   apis:

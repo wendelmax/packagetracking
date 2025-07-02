@@ -25,9 +25,15 @@ public class TrackingEventService {
      */
     @Transactional
     public void processTrackingEvent(TrackingEventRequest request) {
+        String threadName = Thread.currentThread().getName();
+        
+        log.info("=== INÍCIO DO PROCESSAMENTO DO SERVIÇO ===");
+        log.info("Processando evento de rastreamento - Pacote: {}, Thread: {}", 
+                 request.packageId(), threadName);
+        log.info("Dados do evento: {}", request);
+        
         try {
-            log.debug("Processando evento de rastreamento: {} (Thread: {})", 
-                     request, Thread.currentThread());
+            log.info("Criando entidade TrackingEvent para pacote: {}", request.packageId());
             
             TrackingEvent event = TrackingEvent.builder()
                 .packageId(request.packageId())
@@ -38,14 +44,20 @@ public class TrackingEventService {
             
             event.setId(UUID.randomUUID().toString());
             
+            log.info("Salvando evento no banco - ID: {}, Pacote: {}", event.getId(), event.getPackageId());
+            
             TrackingEvent savedEvent = trackingEventRepository.save(event);
             
-            log.info("Evento de rastreamento salvo com ID: {} para pacote: {} (Thread: {})", 
-                     savedEvent.getId(), savedEvent.getPackageId(), Thread.currentThread());
+            log.info("=== EVENTO SALVO COM SUCESSO ===");
+            log.info("Evento de rastreamento salvo - ID: {}, Pacote: {}, Thread: {}", 
+                     savedEvent.getId(), savedEvent.getPackageId(), threadName);
             
         } catch (Exception e) {
-            log.error("Erro ao processar evento de rastreamento: {} (Thread: {})", 
-                     e.getMessage(), Thread.currentThread(), e);
+            log.error("=== ERRO NO SERVIÇO ===");
+            log.error("Erro ao processar evento de rastreamento - Pacote: {}, Thread: {}", 
+                     request.packageId(), threadName);
+            log.error("Mensagem de erro: {}", e.getMessage());
+            log.error("Stack trace completo:", e);
             throw new RuntimeException("Erro ao processar evento de rastreamento", e);
         }
     }
@@ -55,20 +67,29 @@ public class TrackingEventService {
      */
     @Async("externalApiExecutor")
     public CompletableFuture<Void> processTrackingEventAsync(TrackingEventRequest request) {
+        String threadName = Thread.currentThread().getName();
+        
+        log.info("=== INÍCIO DO PROCESSAMENTO ASSÍNCRONO ===");
+        log.info("Processando evento de rastreamento assíncrono - Pacote: {}, Thread: {}", 
+                 request.packageId(), threadName);
+        
         try {
-            log.debug("Processando evento de rastreamento assíncrono: {} (Thread: {})", 
-                     request, Thread.currentThread());
+            log.info("Chamando processamento síncrono para pacote: {}", request.packageId());
             
             processTrackingEvent(request);
             
-            log.info("Evento de rastreamento processado assincronamente para pacote: {} (Thread: {})", 
-                     request.packageId(), Thread.currentThread());
+            log.info("=== PROCESSAMENTO ASSÍNCRONO CONCLUÍDO ===");
+            log.info("Evento de rastreamento processado assincronamente - Pacote: {}, Thread: {}", 
+                     request.packageId(), threadName);
             
             return CompletableFuture.completedFuture(null);
             
         } catch (Exception e) {
-            log.error("Erro no processamento assíncrono do evento: {} (Thread: {})", 
-                     e.getMessage(), Thread.currentThread(), e);
+            log.error("=== ERRO NO PROCESSAMENTO ASSÍNCRONO ===");
+            log.error("Erro no processamento assíncrono do evento - Pacote: {}, Thread: {}", 
+                     request.packageId(), threadName);
+            log.error("Mensagem de erro: {}", e.getMessage());
+            log.error("Stack trace completo:", e);
             return CompletableFuture.failedFuture(e);
         }
     }

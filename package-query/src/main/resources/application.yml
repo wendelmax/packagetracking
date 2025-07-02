@@ -4,6 +4,10 @@ spring:
       on-profile: "!test"
   application:
     name: package-query
+  
+  # Configuração global do Jackson para não serializar campos null
+  jackson:
+    default-property-inclusion: non_null
   datasource:
     url: jdbc:mysql://localhost:3307/packagetracking?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&autoReconnect=true&failOverReadOnly=true&maxReconnects=10&initialTimeout=300&socketTimeout=500&connectTimeout=300&cachePrepStmts=true&useServerPrepStmts=true&rewriteBatchedStatements=true
     username: app_read
@@ -17,9 +21,9 @@ spring:
       max-lifetime: 1800000
       validation-timeout: 250
       connection-test-query: SELECT 1
-      connection-init-sql: SET SESSION sql_mode='STRICT_TRANS_TABLES'
-      validation-interval: 10000
-      keepalive-time: 20000
+      connection-init-sql: "SELECT 1"
+      validation-interval: 15000
+      keepalive-time: 30000
       register-mbeans: true
       pool-name: HikariPool-package-query
       auto-commit: true

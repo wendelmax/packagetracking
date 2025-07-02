@@ -1,5 +1,6 @@
 package com.packagetracking.command.controller;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -80,17 +81,26 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
+        Map<String, String> details = new HashMap<>();
+        details.put("exception", ex.getClass().getSimpleName());
+        details.put("message", ex.getMessage());
+        if (ex.getCause() != null) {
+            details.put("cause", ex.getCause().getClass().getSimpleName() + ": " + ex.getCause().getMessage());
+        }
+        
         ErrorResponse errorResponse = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
                 .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
                 .error("Erro Interno do Servidor")
                 .message("Ocorreu um erro inesperado. Tente novamente mais tarde.")
+                .details(details)
                 .build();
         
         log.error("Erro interno do servidor: {}", ex.getMessage(), ex);
         return ResponseEntity.internalServerError().body(errorResponse);
     }
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class ErrorResponse {
         private LocalDateTime timestamp;
         private int status;
