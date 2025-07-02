@@ -13,6 +13,13 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -22,13 +29,25 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 @ConditionalOnProperty(name = "app.resources.endpoints", havingValue = "events")
+@Tag(name = "Tracking Events", description = "APIs para recebimento de eventos de rastreamento")
 public class TrackingEventController {
     
     private final TrackingEventProducer trackingEventProducer;
 
+    @Operation(
+        summary = "Receber evento de rastreamento",
+        description = "Recebe e processa um evento de rastreamento para um pacote"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "202", description = "Evento aceito para processamento"),
+        @ApiResponse(responseCode = "400", description = "Dados de entrada inválidos"),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+    })
     @PostMapping
-    public ResponseEntity<?> receiveTrackingEvent(@Valid @RequestBody TrackingEventRequest request,
-                                                BindingResult bindingResult) {
+    public ResponseEntity<?> receiveTrackingEvent(
+            @Parameter(description = "Dados do evento de rastreamento", required = true)
+            @Valid @RequestBody TrackingEventRequest request,
+            BindingResult bindingResult) {
         if (bindingResult.hasErrors()) {
             Map<String, String> errors = new HashMap<>();
             bindingResult.getFieldErrors().forEach(e -> 

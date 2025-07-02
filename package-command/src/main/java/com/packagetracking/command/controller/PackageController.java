@@ -13,6 +13,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -24,13 +31,26 @@ import java.time.format.DateTimeFormatter;
 @RequiredArgsConstructor
 @Slf4j
 @ConditionalOnProperty(name = "app.resources.endpoints", havingValue = "package")
+@Tag(name = "Package Command", description = "APIs para criação, atualização e cancelamento de pacotes")
 public class PackageController {
     
     private final PackageService packageService;
 
+    @Operation(
+        summary = "Criar novo pacote",
+        description = "Cria um novo pacote no sistema de rastreamento"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Pacote criado com sucesso",
+            content = @Content(schema = @Schema(implementation = PackageResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Dados de entrada inválidos"),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+    })
     @PostMapping
-    public ResponseEntity<?> createPackage(@Valid @RequestBody PackageCreateRequest request, 
-                                         BindingResult bindingResult) {
+    public ResponseEntity<?> createPackage(
+            @Parameter(description = "Dados do pacote a ser criado", required = true)
+            @Valid @RequestBody PackageCreateRequest request, 
+            BindingResult bindingResult) {
         if (bindingResult.hasErrors()) {
             Map<String, String> errors = new HashMap<>();
             bindingResult.getFieldErrors().forEach(e -> 
@@ -47,9 +67,22 @@ public class PackageController {
                 .body(response);
     }
     
+    @Operation(
+        summary = "Atualizar status do pacote",
+        description = "Atualiza o status de um pacote existente"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Status atualizado com sucesso",
+            content = @Content(schema = @Schema(implementation = PackageResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Dados de entrada inválidos"),
+        @ApiResponse(responseCode = "404", description = "Pacote não encontrado"),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+    })
     @PutMapping("/{id}/status")
     public ResponseEntity<?> updatePackageStatus(
+            @Parameter(description = "ID do pacote", example = "pacote-026fbedc")
             @PathVariable String id, 
+            @Parameter(description = "Novo status do pacote", required = true)
             @Valid @RequestBody PackageUpdateRequest request,
             BindingResult bindingResult) {
         if (bindingResult.hasErrors()) {
@@ -68,8 +101,20 @@ public class PackageController {
                 .body(response);
     }
     
+    @Operation(
+        summary = "Cancelar pacote",
+        description = "Cancela um pacote existente no sistema"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Pacote cancelado com sucesso",
+            content = @Content(schema = @Schema(implementation = PackageCancelResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Pacote não encontrado"),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+    })
     @DeleteMapping("/{id}")
-    public ResponseEntity<PackageCancelResponse> cancelPackage(@PathVariable String id) {
+    public ResponseEntity<PackageCancelResponse> cancelPackage(
+            @Parameter(description = "ID do pacote", example = "pacote-026fbedc")
+            @PathVariable String id) {
         log.info("Cancelando pacote: {}", id);
         PackageCancelResponse response = packageService.cancelPackage(id);
         

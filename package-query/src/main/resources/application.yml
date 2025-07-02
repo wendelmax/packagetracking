@@ -110,6 +110,18 @@ management:
       remote-fields: "x-request-id,x-correlation-id"
       correlation-fields: "x-request-id,x-correlation-id"
 
+# SpringDoc OpenAPI Configuration
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    doc-expansion: none
+    disable-swagger-default-url: true
+  packages-to-scan: com.packagetracking.query.controller
+
 logging:
   level:
     com.packagetracking.query: ${LOGGING_LEVEL_PACKAGETRACKING_QUERY:INFO}

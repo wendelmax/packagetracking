@@ -80,6 +80,30 @@ docker logs event-consumer
 docker logs package-query
 ```
 
+## Documentação da API (Swagger/OpenAPI)
+
+### Endpoints do Swagger por Instância
+
+#### Package Command (Porta 8080)
+- **Swagger UI**: http://localhost:8080/swagger-ui.html
+- **API Docs**: http://localhost:8080/api-docs
+- **Descrição**: APIs para criação, atualização e cancelamento de pacotes
+
+#### Event Ingestion (Porta 8081)
+- **Swagger UI**: http://localhost:8081/swagger-ui.html
+- **API Docs**: http://localhost:8081/api-docs
+- **Descrição**: APIs para recebimento de eventos de rastreamento
+
+#### Event Consumer (Porta 8082)
+- **Swagger UI**: http://localhost:8082/swagger-ui.html
+- **API Docs**: http://localhost:8082/api-docs
+- **Descrição**: APIs para processamento de eventos de rastreamento
+
+#### Package Query (Porta 8083)
+- **Swagger UI**: http://localhost:8083/swagger-ui.html
+- **API Docs**: http://localhost:8083/api-docs
+- **Descrição**: APIs para consulta de pacotes e eventos de rastreamento
+
 ## Endpoints da API
 
 ### Package Service (http://localhost:8080)

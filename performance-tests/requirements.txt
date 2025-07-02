@@ -1,0 +1,16 @@
+# Dependências para testes de performance com Locust
+# Sistema de Rastreamento de Pacotes
+
+# Locust - Framework principal de teste de performance
+locust>=2.15.0
+
+# Dependências opcionais para funcionalidades extras
+requests>=2.28.0
+urllib3>=1.26.0
+
+# Para geração de relatórios mais avançados
+# matplotlib>=3.5.0
+# pandas>=1.4.0
+
+# Para testes de stress mais específicos
+# psutil>=5.8.0 

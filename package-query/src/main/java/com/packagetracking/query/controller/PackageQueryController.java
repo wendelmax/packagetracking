@@ -10,6 +10,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.util.List;
 import java.util.Optional;
@@ -18,6 +25,7 @@ import java.util.Optional;
 @RequestMapping("/api/packages")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Package Query", description = "APIs para consulta de pacotes e eventos de rastreamento")
 public class PackageQueryController {
     
     private final PackageQueryService packageQueryService;
@@ -29,9 +37,21 @@ public class PackageQueryController {
      * @param includeEvents true para incluir eventos, false para retornar apenas dados do pacote
      * @return Detalhes do pacote com ou sem eventos
      */
+    @Operation(
+        summary = "Buscar pacote por ID",
+        description = "Consulta detalhes de um pacote específico com opção de incluir eventos de rastreamento"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Pacote encontrado com sucesso",
+            content = @Content(schema = @Schema(implementation = PackageResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Pacote não encontrado"),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+    })
     @GetMapping("/{id}")
     public ResponseEntity<PackageResponse> getPackage(
+            @Parameter(description = "ID do pacote", example = "pacote-026fbedc")
             @PathVariable String id,
+            @Parameter(description = "Incluir eventos de rastreamento", example = "true")
             @RequestParam Optional<Boolean> includeEvents) {
         try {
             boolean includeEventsValue = includeEvents.orElse(true);
@@ -58,9 +78,7 @@ public class PackageQueryController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
-    
 
-    
     /**
      * Consulta lista de pacotes com filtros opcionais de sender e recipient
      * 
@@ -68,9 +86,20 @@ public class PackageQueryController {
      * @param recipient Filtro opcional para destinatário
      * @return Lista de pacotes (sem eventos)
      */
+    @Operation(
+        summary = "Listar pacotes",
+        description = "Consulta lista de pacotes com filtros opcionais de remetente e destinatário"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Lista de pacotes retornada com sucesso",
+            content = @Content(schema = @Schema(implementation = PackageResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+    })
     @GetMapping
     public ResponseEntity<List<PackageResponse>> getPackages(
+            @Parameter(description = "Filtro por remetente", example = "Empresa Teste")
             @RequestParam Optional<String> sender,
+            @Parameter(description = "Filtro por destinatário", example = "João Silva")
             @RequestParam Optional<String> recipient) {
         try {
             log.info("Buscando lista de pacotes - sender: {}, recipient: {}", 
@@ -88,9 +117,7 @@ public class PackageQueryController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
-    
 
-    
     /**
      * Consulta lista de pacotes paginada com filtros opcionais
      * 
@@ -100,11 +127,24 @@ public class PackageQueryController {
      * @param size Tamanho da página (padrão: 20)
      * @return Página de pacotes (sem eventos)
      */
+    @Operation(
+        summary = "Listar pacotes paginados",
+        description = "Consulta lista de pacotes paginada com filtros opcionais"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Página de pacotes retornada com sucesso",
+            content = @Content(schema = @Schema(implementation = PackageResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+    })
     @GetMapping("/page")
     public ResponseEntity<Page<PackageResponse>> getPackagesPaginated(
+            @Parameter(description = "Filtro por remetente", example = "Empresa Teste")
             @RequestParam Optional<String> sender,
+            @Parameter(description = "Filtro por destinatário", example = "João Silva")
             @RequestParam Optional<String> recipient,
+            @Parameter(description = "Número da página (base 0)", example = "0")
             @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Tamanho da página", example = "20")
             @RequestParam(defaultValue = "20") int size) {
         try {
             log.info("Buscando lista de pacotes paginada - sender: {}, recipient: {}, page: {}, size: {}", 
