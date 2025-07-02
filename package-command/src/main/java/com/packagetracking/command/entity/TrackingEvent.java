@@ -19,9 +19,11 @@ import java.time.Instant;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TrackingEvent {
-    
+    /**
+     * UUID v4 sem hífens, 32 caracteres
+     */
     @Id
-    @Column(name = "id", length = 50)
+    @Column(name = "id", length = 32, nullable = false)
     private String id;
     
     @Column(name = "packageId", nullable = false, length = 50)

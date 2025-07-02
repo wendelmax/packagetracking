@@ -67,11 +67,13 @@ class PackageQueryIntegrationTest {
         }
         
         // Criar evento de teste
-        testEvent = new TrackingEvent();
-        testEvent.setPackageId("pacote-test-123");
-        testEvent.setLocation("Centro de Distribuição Teste");
-        testEvent.setDescription("Pacote recebido no centro de distribuição");
-        testEvent.setDate(LocalDateTime.parse("2025-01-20T11:00:00"));
+        testEvent = TrackingEvent.builder()
+            .id("b2c3d4e5f67890123456789012345678") // UUID válido de 32 caracteres
+            .packageId("pacote-test-123")
+            .location("Centro de Distribuição Teste")
+            .description("Pacote recebido no centro de distribuição")
+            .date(LocalDateTime.parse("2025-01-20T11:00:00"))
+            .build();
         
         testEvent = trackingEventRepository.save(testEvent);
         

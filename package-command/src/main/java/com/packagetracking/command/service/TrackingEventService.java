@@ -3,6 +3,7 @@ package com.packagetracking.command.service;
 import com.packagetracking.command.dto.tracking.TrackingEventRequest;
 import com.packagetracking.command.entity.TrackingEvent;
 import com.packagetracking.command.repository.TrackingEventRepository;
+import com.packagetracking.command.util.UuidGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -10,7 +11,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZoneOffset;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @Service
@@ -25,6 +25,9 @@ public class TrackingEventService {
      */
     @Transactional
     public void processTrackingEvent(TrackingEventRequest request) {
+        if (request == null) {
+            throw new RuntimeException("Erro ao processar evento de rastreamento: request não pode ser nulo");
+        }
         String threadName = Thread.currentThread().getName();
         
         log.info("=== INÍCIO DO PROCESSAMENTO DO SERVIÇO ===");
@@ -42,7 +45,8 @@ public class TrackingEventService {
                 .date(request.date().toInstant(ZoneOffset.UTC))
                 .build();
             
-            event.setId(UUID.randomUUID().toString());
+            // Usando UUID otimizado (sem hífens) para melhor performance
+            event.setId(UuidGenerator.generateOptimizedUuid());
             
             log.info("Salvando evento no banco - ID: {}, Pacote: {}", event.getId(), event.getPackageId());
             

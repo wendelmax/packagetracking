@@ -18,10 +18,12 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TrackingEvent {
-    
+    /**
+     * UUID v4 sem hífens, 32 caracteres
+     */
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "id", length = 32, nullable = false)
+    private String id;
     
     @Column(name = "packageId", nullable = false, length = 50)
     private String packageId;

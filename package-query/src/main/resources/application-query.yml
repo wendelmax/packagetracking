@@ -20,7 +20,6 @@ spring:
           provider_disables_autocommit: false
         # Otimizações para performance de consulta
         jdbc.batch_versioned_data: true
-        jdbc.batch.builder: legacy
         connection.provider_disables_autocommit: false
         jdbc.timeout: 15
         connection.pool_size: 150

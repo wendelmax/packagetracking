@@ -38,7 +38,7 @@ class TrackingEventServiceTest {
         );
 
         trackingEvent = TrackingEvent.builder()
-            .id("event-12345")
+            .id("a1b2c3d4e5f678901234567890123456")
             .packageId("pacote-12345")
             .location("Centro de Distribuição São Paulo")
             .description("Pacote chegou ao centro de distribuição")

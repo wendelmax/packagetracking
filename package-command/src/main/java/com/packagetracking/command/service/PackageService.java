@@ -113,6 +113,7 @@ public class PackageService {
                 .status(savedPackage.getStatus().name())
                 .createdAt(savedPackage.getCreatedAt())
                 .updatedAt(savedPackage.getUpdatedAt())
+                .deliveredAt(savedPackage.getDeliveredAt())
                 .build();
                 
         } catch (Exception e) {
