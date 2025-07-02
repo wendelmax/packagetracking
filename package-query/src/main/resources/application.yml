@@ -5,106 +5,95 @@ spring:
   application:
     name: package-query
   
-  # Configuração global do Jackson para não serializar campos null
   jackson:
     default-property-inclusion: non_null
   datasource:
-    url: jdbc:mysql://localhost:3307/packagetracking?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&autoReconnect=true&failOverReadOnly=true&maxReconnects=10&initialTimeout=300&socketTimeout=500&connectTimeout=300&cachePrepStmts=true&useServerPrepStmts=true&rewriteBatchedStatements=true
-    username: app_read
-    password: app_read
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    hikari:
-      maximum-pool-size: 20
-      minimum-idle: 5
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
-      validation-timeout: 250
-      connection-test-query: SELECT 1
-      connection-init-sql: "SELECT 1"
-      validation-interval: 15000
-      keepalive-time: 30000
-      register-mbeans: true
-      pool-name: HikariPool-package-query
-      auto-commit: true
+    slave:
+      url: ${SPRING_DATASOURCE_SLAVE_URL:jdbc:mysql://localhost:3307/packagetracking?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&autoReconnect=true&failOverReadOnly=true&maxReconnects=10&initialTimeout=300&socketTimeout=500&connectTimeout=300&cachePrepStmts=true&useServerPrepStmts=true&rewriteBatchedStatements=true}
+      username: ${SPRING_DATASOURCE_SLAVE_USERNAME:app_read}
+      password: ${SPRING_DATASOURCE_SLAVE_PASSWORD:app_read}
+      driver-class-name: com.mysql.cj.jdbc.Driver
+    
+    master:
+      url: ${SPRING_DATASOURCE_MASTER_URL:jdbc:mysql://localhost:3306/packagetracking?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&autoReconnect=true&failOverReadOnly=true&maxReconnects=10&initialTimeout=300&socketTimeout=500&connectTimeout=300&cachePrepStmts=true&useServerPrepStmts=true&rewriteBatchedStatements=true}
+      username: ${SPRING_DATASOURCE_MASTER_USERNAME:app_read}
+      password: ${SPRING_DATASOURCE_MASTER_PASSWORD:app_read}
+      driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
-      ddl-auto: validate
-    show-sql: false
+      ddl-auto: ${JPA_HIBERNATE_DDL_AUTO:validate}
+    show-sql: ${JPA_SHOW_SQL:false}
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
-        format_sql: false
-        use_sql_comments: false
+        format_sql: ${HIBERNATE_FORMAT_SQL:false}
+        use_sql_comments: ${HIBERNATE_USE_SQL_COMMENTS:false}
         jdbc:
-          fetch_size: 50
-          batch_size: 100
-  # Configuração do Redis
+          fetch_size: ${HIBERNATE_JDBC_FETCH_SIZE:50}
+          batch_size: ${HIBERNATE_JDBC_BATCH_SIZE:100}
   redis:
-    host: localhost
-    port: 6379
-    timeout: 2000ms
+    host: ${SPRING_REDIS_HOST:localhost}
+    port: ${SPRING_REDIS_PORT:6379}
+    timeout: ${SPRING_REDIS_TIMEOUT:2000ms}
     lettuce:
       pool:
-        max-active: 8
-        max-idle: 8
-        min-idle: 0
-        max-wait: -1ms
-  # Configurações de timeout para controllers de consulta
+        max-active: ${SPRING_REDIS_LETTUCE_MAX_ACTIVE:8}
+        max-idle: ${SPRING_REDIS_LETTUCE_MAX_IDLE:8}
+        min-idle: ${SPRING_REDIS_LETTUCE_MIN_IDLE:0}
+        max-wait: ${SPRING_REDIS_LETTUCE_MAX_WAIT:-1ms}
   mvc:
     async:
-      request-timeout: 30000
-  # Configuração do servidor web
+      request-timeout: ${MVC_ASYNC_REQUEST_TIMEOUT:30000}
   web:
     resources:
       add-mappings: false
-  # Configuração do servidor
   server:
-    port: 8080
+    port: ${SERVER_PORT:8083}
     servlet:
       load-on-startup: 1
 
-# Configurações do Resilience4j Circuit Breaker
 resilience4j:
   circuitbreaker:
     instances:
       package-cache:
-        sliding-window-size: 10
-        failure-rate-threshold: 50
-        wait-duration-in-open-state: 5s
-        permitted-number-of-calls-in-half-open-state: 3
-        slow-call-rate-threshold: 50
-        slow-call-duration-threshold: 2s
+        sliding-window-size: ${RESILIENCE4J_PACKAGE_CACHE_SLIDING_WINDOW_SIZE:10}
+        failure-rate-threshold: ${RESILIENCE4J_PACKAGE_CACHE_FAILURE_RATE:50}
+        wait-duration-in-open-state: ${RESILIENCE4J_PACKAGE_CACHE_WAIT_DURATION:5s}
+        permitted-number-of-calls-in-half-open-state: ${RESILIENCE4J_PACKAGE_CACHE_PERMITTED_CALLS:3}
+        slow-call-rate-threshold: ${RESILIENCE4J_PACKAGE_CACHE_SLOW_CALL_RATE:50}
+        slow-call-duration-threshold: ${RESILIENCE4J_PACKAGE_CACHE_SLOW_CALL_DURATION:2s}
         automatic-transition-from-open-to-half-open-enabled: true
   timelimiter:
     instances:
       package-cache:
-        timeout-duration: 3s
+        timeout-duration: ${RESILIENCE4J_PACKAGE_CACHE_TIMEOUT_DURATION:3s}
 
-# Configuração de cache otimizada para alto volume
 app:
-  country-code: BR
+  country-code: ${APP_COUNTRY_CODE:BR}
   cache:
     packages:
-      ttl: 3600 # 1 hora para pacotes IN_TRANSIT
-      max-size: 1000
+      ttl: ${APP_CACHE_PACKAGES_TTL:3600}
+      max-size: ${APP_CACHE_PACKAGES_MAX_SIZE:1000}
     events:
-      ttl: 300 # 5 minutos para eventos
-      max-size: 500
+      ttl: ${APP_CACHE_EVENTS_TTL:300}
+      max-size: ${APP_CACHE_EVENTS_MAX_SIZE:500}
+  failover:
+    enabled: ${APP_FAILOVER_ENABLED:true}
+    max-retry-attempts: ${APP_FAILOVER_MAX_RETRY_ATTEMPTS:3}
+    retry-delay-ms: ${APP_FAILOVER_RETRY_DELAY_MS:1000}
 
-# Configurações de monitoramento e métricas
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus,circuitbreakers
+        include: ${MANAGEMENT_ENDPOINTS_INCLUDE:health,info,metrics,prometheus,circuitbreakers}
   endpoint:
     health:
-      show-details: when-authorized
+      show-details: ${MANAGEMENT_HEALTH_SHOW_DETAILS:when-authorized}
   metrics:
     export:
       prometheus:
-        enabled: true
+        enabled: ${MANAGEMENT_METRICS_PROMETHEUS_ENABLED:true}
     distribution:
       percentiles-histogram:
         http.server.requests: true
@@ -114,29 +103,28 @@ management:
       application: ${spring.application.name}
   tracing:
     sampling:
-      probability: 0.1
+      probability: ${MANAGEMENT_TRACING_SAMPLING_PROBABILITY:0.1}
     propagation:
       type: w3c
     baggage:
       remote-fields: "x-request-id,x-correlation-id"
       correlation-fields: "x-request-id,x-correlation-id"
 
-# Configurações de logging
 logging:
   level:
-    com.packagetracking.query: INFO
-    org.springframework.cache: DEBUG
-    io.github.resilience4j: DEBUG
-    org.springframework.data.redis: DEBUG
+    com.packagetracking.query: ${LOGGING_LEVEL_PACKAGETRACKING_QUERY:INFO}
+    org.springframework.cache: ${LOGGING_LEVEL_SPRING_CACHE:DEBUG}
+    io.github.resilience4j: ${LOGGING_LEVEL_RESILIENCE4J:DEBUG}
+    org.springframework.data.redis: ${LOGGING_LEVEL_SPRING_REDIS:DEBUG}
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    console: ${LOGGING_PATTERN_CONSOLE:"%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"}
+    file: ${LOGGING_PATTERN_FILE:"%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"}
   file:
-    name: logs/package-query.log
-    max-size: 100MB
-    max-history: 30
+    name: ${LOGGING_FILE_NAME:logs/package-query.log}
+    max-size: ${LOGGING_FILE_MAX_SIZE:100MB}
+    max-history: ${LOGGING_FILE_MAX_HISTORY:30}
   logback:
     rollingpolicy:
-      max-file-size: 100MB
-      max-history: 30
-      total-size-cap: 3GB 
+      max-file-size: ${LOGBACK_MAX_FILE_SIZE:100MB}
+      max-history: ${LOGBACK_MAX_HISTORY:30}
+      total-size-cap: ${LOGBACK_TOTAL_SIZE_CAP:3GB} 

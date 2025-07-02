@@ -185,39 +185,38 @@ GET /api/v1/packages/{id}/events
 
 ## Configuração de Ambiente
 
-### Variáveis de Ambiente
+### Abordagem Balanceada de Configuração
 
-#### Package Service (8080)
+O projeto utiliza uma abordagem balanceada com um único `application.yml` por módulo, permitindo sobrescrever valores através de variáveis de ambiente.
+
+#### Principais Variáveis de Ambiente
+
 ```bash
-SPRING_PROFILES_ACTIVE=docker
+# Configurações do Servidor
+SERVER_PORT=8080                    # package-command
+SERVER_PORT=8083                    # package-query
+
+# Configurações do Banco de Dados
 SPRING_DATASOURCE_URL=jdbc:mysql://mysql1:3306/packagetracking
 SPRING_DATASOURCE_USERNAME=app_write
 SPRING_DATASOURCE_PASSWORD=app_write
+
+# Configurações do Redis (package-query)
+SPRING_REDIS_HOST=redis
+SPRING_REDIS_PORT=6379
+
+# Configurações do RabbitMQ (package-command)
+RABBIT_MQ_HOST=rabbitmq
+RABBIT_MQ_PORT=5672
+RABBIT_MQ_ADDRESS=amqp://rabbitmq:5672/packagetracking
+
+# Configurações de Recursos (package-command)
+PERSISTENCE_ENABLED=true
+QUEUES_ENABLED=false
+ENDPOINTS_TYPE=package
 ```
 
-#### Event Producer (8081)
-```bash
-SPRING_PROFILES_ACTIVE=producer
-SPRING_DATASOURCE_URL=jdbc:mysql://mysql1:3306/packagetracking
-SPRING_DATASOURCE_USERNAME=app_write
-SPRING_DATASOURCE_PASSWORD=app_write
-```
 
-#### Event Consumer (8082)
-```bash
-SPRING_PROFILES_ACTIVE=consumer
-SPRING_DATASOURCE_URL=jdbc:mysql://mysql2:3306/packagetracking
-SPRING_DATASOURCE_USERNAME=app_read
-SPRING_DATASOURCE_PASSWORD=app_read
-```
-
-#### Package Query (8083)
-```bash
-SPRING_PROFILES_ACTIVE=query
-SPRING_DATASOURCE_URL=jdbc:mysql://mysql2:3306/packagetracking
-SPRING_DATASOURCE_USERNAME=app_read
-SPRING_DATASOURCE_PASSWORD=app_read
-```
 
 ## Desenvolvimento
 
@@ -231,8 +230,131 @@ packagetracking/
 └── build-and-run.sh        # Script de build e deploy
 ```
 
-### Perfis Spring Boot
-- `docker`: Desenvolvimento com Docker
-- `producer`: Apenas produção de eventos
-- `consumer`: Apenas consumo de eventos
-- `query`: Apenas consultas
+### Configuração Balanceada
+
+O projeto utiliza uma abordagem balanceada com um único `application.yml` por módulo:
+
+#### Módulo Command (Package Service)
+- Configuração única com variáveis de ambiente
+- Controle de recursos via variáveis:
+  - `PERSISTENCE_ENABLED`: Habilita persistência no banco de dados
+  - `QUEUES_ENABLED`: Habilita processamento de filas RabbitMQ
+  - `ENDPOINTS_TYPE`: Controla endpoints REST (package/events/none)
+
+#### Regras de Configuração por Container:
+- **package-ingestion**: `PERSISTENCE_ENABLED=true`, `QUEUES_ENABLED=false`, `ENDPOINTS_TYPE=package`
+- **event-ingestion**: `PERSISTENCE_ENABLED=false`, `QUEUES_ENABLED=true`, `ENDPOINTS_TYPE=events` (Producer)
+- **event-consumer**: `PERSISTENCE_ENABLED=true`, `QUEUES_ENABLED=true`, `ENDPOINTS_TYPE=none` (Consumer)
+
+**Regras Importantes:**
+- **Producer e Consumer são mutuamente exclusivos**: Não podem estar habilitados simultaneamente
+- **Producer**: Habilitado apenas quando `endpoints=events`
+- **Consumer**: Habilitado apenas quando `endpoints=none`
+
+#### Módulo Query (Package Query)
+- Configuração única com variáveis de ambiente
+- Configurações de cache e failover via variáveis
+- Otimizações automáticas baseadas no ambiente
+
+### Configuração de Failover (Módulo Query)
+
+O módulo query implementa **failover automático** entre MySQL Master e Slave:
+
+#### Endpoints de Monitoramento de Failover
+
+```bash
+# Status geral dos bancos
+GET http://localhost:8083/api/database/health
+
+# Status detalhado
+GET http://localhost:8083/api/database/status
+
+# Forçar failover para master
+POST http://localhost:8083/api/database/failover/master
+
+# Voltar para slave (se saudável)
+POST http://localhost:8083/api/database/switch/slave
+```
+
+#### Funcionalidades de Failover
+
+- ✅ **Detecção Automática**: Monitoramento contínuo da saúde dos bancos
+- ✅ **Failover Transparente**: Mudança automática quando slave falha
+- ✅ **Recuperação Automática**: Retorno ao slave quando recupera
+- ✅ **Controle Manual**: Endpoints para gerenciamento manual
+- ✅ **Logs Detalhados**: Rastreamento de todas as mudanças
+
+#### Configuração de Usuários MySQL
+
+O script `build-and-run.sh` cria automaticamente os usuários necessários:
+
+```bash
+# Master (mysql1) - Escritas
+app_write: Todas as operações
+app_read: Apenas leituras (fallback)
+
+# Slave (mysql2) - Leituras
+app_read: Apenas leituras (primário)
+```
+
+#### Testando o Failover
+
+```bash
+# 1. Verificar status inicial
+curl http://localhost:8083/api/database/health
+
+# 2. Simular falha do slave
+docker stop mysql2
+
+# 3. Verificar failover automático
+curl http://localhost:8083/api/database/health
+
+# 4. Recuperar o slave
+docker start mysql2
+
+# 5. Verificar retorno automático
+curl http://localhost:8083/api/database/health
+```
+
+## Testes de Performance
+
+Para executar testes de performance completos:
+
+```bash
+cd performance-tests
+./run_performance_test.sh
+```
+
+O script inclui:
+- Geração automática de dados de teste
+- Execução de testes de carga com k6
+- Coleta de métricas via Spring Boot Actuator
+- Geração de relatório HTML completo
+- **Uso automático de configurações** via variáveis de ambiente
+
+### Configurações de Performance
+
+O script usa automaticamente configurações otimizadas via variáveis de ambiente:
+- **Pool de conexões**: Configurado via `HIKARI_MAXIMUM_POOL_SIZE`
+- **Threads**: Configurado via `TOMCAT_THREADS_MAX`
+- **Timeout**: Configurado via `SERVER_CONNECTION_TIMEOUT`
+- **Virtual Threads**: Configurado via `JAVA_VIRTUAL_THREADS_MAX_COUNT`
+- **Cache**: Configurações otimizadas para Redis
+- **Circuit Breaker**: Configurações para alta disponibilidade
+
+### Docker Compose
+
+O script usa o `docker-compose.yml` padrão que:
+- Configura todos os serviços com variáveis de ambiente otimizadas
+- Reconstrói as imagens com `--build` para garantir configurações corretas
+- Otimiza para performance com configurações específicas
+- Garante consistência entre todos os containers
+
+### Limpeza de Containers
+
+```bash
+# Limpar containers de performance
+cd docker
+docker compose -f docker-compose.performance.yml down --volumes --remove-orphans
+docker rmi $(docker images -q packagetracking_* 2>/dev/null) 2>/dev/null || true
+```

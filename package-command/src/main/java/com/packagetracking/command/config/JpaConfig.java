@@ -13,7 +13,7 @@ import javax.sql.DataSource;
 @Configuration
 @EnableJpaRepositories(basePackages = "com.packagetracking.command.repository")
 @EnableTransactionManagement
-@ConditionalOnProperty(name = "app.modules.package-controllers-enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "app.resources.persistence", havingValue = "true")
 @Slf4j
 public class JpaConfig implements CommandLineRunner {
     

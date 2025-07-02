@@ -1,16 +1,16 @@
 server:
-  port: 8080
-  connection-timeout: 500
+  port: ${SERVER_PORT:8080}
+  connection-timeout: ${SERVER_CONNECTION_TIMEOUT:500}
   shutdown: graceful
-  graceful-timeout: 5000
+  graceful-timeout: ${SERVER_GRACEFUL_TIMEOUT:5000}
   # Configurações de thread pool para alto volume
   tomcat:
     threads:
-      max: 200
-      min-spare: 20
-    max-connections: 8192
-    accept-count: 100
-    connection-timeout: 500
+      max: ${TOMCAT_THREADS_MAX:200}
+      min-spare: ${TOMCAT_THREADS_MIN_SPARE:20}
+    max-connections: ${TOMCAT_MAX_CONNECTIONS:8192}
+    accept-count: ${TOMCAT_ACCEPT_COUNT:100}
+    connection-timeout: ${TOMCAT_CONNECTION_TIMEOUT:500}
 
 spring:
   application:
@@ -21,54 +21,54 @@ spring:
     default-property-inclusion: non_null
   
   datasource:
-    url: jdbc:mysql://localhost:3306/packagetracking?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&autoReconnect=true&failOverReadOnly=false&maxReconnects=10&initialTimeout=500&socketTimeout=1000&connectTimeout=500&cachePrepStmts=true&useServerPrepStmts=true&rewriteBatchedStatements=true
-    username: app_write
-    password: app_write
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/packagetracking?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&autoReconnect=true&failOverReadOnly=false&maxReconnects=10&initialTimeout=500&socketTimeout=1000&connectTimeout=500&cachePrepStmts=true&useServerPrepStmts=true&rewriteBatchedStatements=true}
+    username: ${SPRING_DATASOURCE_USERNAME:app_write}
+    password: ${SPRING_DATASOURCE_PASSWORD:app_write}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
-      maximum-pool-size: 100
-      minimum-idle: 20
-      connection-timeout: 500
-      idle-timeout: 300000
-      max-lifetime: 1800000
-      leak-detection-threshold: 30000
-      validation-timeout: 250
+      maximum-pool-size: ${HIKARI_MAXIMUM_POOL_SIZE:100}
+      minimum-idle: ${HIKARI_MINIMUM_IDLE:20}
+      connection-timeout: ${HIKARI_CONNECTION_TIMEOUT:500}
+      idle-timeout: ${HIKARI_IDLE_TIMEOUT:300000}
+      max-lifetime: ${HIKARI_MAX_LIFETIME:1800000}
+      leak-detection-threshold: ${HIKARI_LEAK_DETECTION_THRESHOLD:30000}
+      validation-timeout: ${HIKARI_VALIDATION_TIMEOUT:250}
       connection-test-query: SELECT 1
       connection-init-sql: "SELECT 1"
-      validation-interval: 15000
-      keepalive-time: 30000
+      validation-interval: ${HIKARI_VALIDATION_INTERVAL:15000}
+      keepalive-time: ${HIKARI_KEEPALIVE_TIME:30000}
       register-mbeans: true
       pool-name: HikariPool-package-command
       auto-commit: true
 
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: false
+      ddl-auto: ${JPA_HIBERNATE_DDL_AUTO:update}
+    show-sql: ${JPA_SHOW_SQL:false}
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
         jdbc:
-          batch_size: 50
+          batch_size: ${HIBERNATE_JDBC_BATCH_SIZE:50}
           batch_versioned_data: true
         order_inserts: true
         order_updates: true
         cache:
           use_second_level_cache: false
           use_query_cache: false
-        show_sql: false
-        format_sql: false
+        show_sql: ${HIBERNATE_SHOW_SQL:false}
+        format_sql: ${HIBERNATE_FORMAT_SQL:false}
         connection:
           provider_disables_autocommit: false
         jdbc.batch_versioned_data: true
         connection.provider_disables_autocommit: false
-        jdbc.timeout: 1000
-        connection.pool_size: 100
+        jdbc.timeout: ${HIBERNATE_JDBC_TIMEOUT:1000}
+        connection.pool_size: ${HIBERNATE_CONNECTION_POOL_SIZE:100}
 
   # Configurações de timeout para controllers
   mvc:
     async:
-      request-timeout: 1000 # 1 segundo para requests assíncronos
+      request-timeout: ${MVC_ASYNC_REQUEST_TIMEOUT:1000} # 1 segundo para requests assíncronos
     servlet:
       load-on-startup: 1
 
@@ -78,13 +78,12 @@ spring:
     static-path-pattern: /static/**
 
 app:
-  country-code: BR
+  country-code: ${APP_COUNTRY_CODE:BR}
   
-  modules:
-    package-controllers-enabled: ${PACKAGE_CONTROLLERS_ENABLED:true}
-    tracking-producer-enabled: ${TRACKING_PRODUCER_ENABLED:true}
-    tracking-consumer-enabled: ${TRACKING_CONSUMER_ENABLED:true}
-    package-query-enabled: true
+  resources:
+    persistence: ${PERSISTENCE_ENABLED:true}
+    queues: ${QUEUES_ENABLED:true}
+    endpoints: ${ENDPOINTS_TYPE:package}
   
   fixed-holidays:
     - "01-01"
@@ -98,133 +97,133 @@ app:
 
   # Configurações da DLQ e política de retry
   dlq:
-    max-retry-attempts: 3
-    retry-delay-minutes: 5
+    max-retry-attempts: ${DLQ_MAX_RETRY_ATTEMPTS:3}
+    retry-delay-minutes: ${DLQ_RETRY_DELAY_MINUTES:5}
 
 external:
   apis:
     holiday:
-      base-url: https://date.nager.at
+      base-url: ${HOLIDAY_API_BASE_URL:https://date.nager.at}
       timeout:
-        connect: 300
-        read: 500
-        write: 300
+        connect: ${HOLIDAY_API_CONNECT_TIMEOUT:300}
+        read: ${HOLIDAY_API_READ_TIMEOUT:500}
+        write: ${HOLIDAY_API_WRITE_TIMEOUT:300}
     dog:
-      base-url: https://dogapi.dog
+      base-url: ${DOG_API_BASE_URL:https://dogapi.dog}
       timeout:
-        connect: 200
-        read: 300
-        write: 200
+        connect: ${DOG_API_CONNECT_TIMEOUT:200}
+        read: ${DOG_API_READ_TIMEOUT:300}
+        write: ${DOG_API_WRITE_TIMEOUT:200}
 
 feign:
   client:
     config:
       default:
-        connect-timeout: 300
-        read-timeout: 500
-        logger-level: basic
+        connect-timeout: ${FEIGN_DEFAULT_CONNECT_TIMEOUT:300}
+        read-timeout: ${FEIGN_DEFAULT_READ_TIMEOUT:500}
+        logger-level: ${FEIGN_DEFAULT_LOGGER_LEVEL:basic}
         # Configurações adicionais para alto volume
         retryer: com.netflix.feign.Retryer.Default
         error-decoder: com.netflix.feign.codec.ErrorDecoder.Default
         request-interceptors:
           - com.packagetracking.command.config.HttpHeaderInterceptor
       holiday-api:
-        connect-timeout: 300
-        read-timeout: 500
-        logger-level: basic
+        connect-timeout: ${FEIGN_HOLIDAY_CONNECT_TIMEOUT:300}
+        read-timeout: ${FEIGN_HOLIDAY_READ_TIMEOUT:500}
+        logger-level: ${FEIGN_HOLIDAY_LOGGER_LEVEL:basic}
       dog-api:
-        connect-timeout: 200
-        read-timeout: 300
-        logger-level: basic
+        connect-timeout: ${FEIGN_DOG_CONNECT_TIMEOUT:200}
+        read-timeout: ${FEIGN_DOG_READ_TIMEOUT:300}
+        logger-level: ${FEIGN_DOG_LOGGER_LEVEL:basic}
   circuitbreaker:
-    enabled: true
+    enabled: ${FEIGN_CIRCUITBREAKER_ENABLED:true}
   compression:
     request:
-      enabled: true
+      enabled: ${FEIGN_COMPRESSION_REQUEST_ENABLED:true}
       mime-types: text/xml,application/xml,application/json
-      min-request-size: 2048
+      min-request-size: ${FEIGN_COMPRESSION_MIN_REQUEST_SIZE:2048}
     response:
-      enabled: true
+      enabled: ${FEIGN_COMPRESSION_RESPONSE_ENABLED:true}
 
 resilience4j:
   circuitbreaker:
     instances:
       date-nager-api:
-        sliding-window-size: 50
-        minimum-number-of-calls: 20
-        permitted-number-of-calls-in-half-open-state: 10
+        sliding-window-size: ${RESILIENCE4J_DATE_NAGER_SLIDING_WINDOW_SIZE:50}
+        minimum-number-of-calls: ${RESILIENCE4J_DATE_NAGER_MIN_CALLS:20}
+        permitted-number-of-calls-in-half-open-state: ${RESILIENCE4J_DATE_NAGER_PERMITTED_CALLS_HALF_OPEN:10}
         automatic-transition-from-open-to-half-open-enabled: true
-        wait-duration-in-open-state: 2000
-        failure-rate-threshold: 20
-        slow-call-rate-threshold: 50
-        slow-call-duration-threshold: 500
+        wait-duration-in-open-state: ${RESILIENCE4J_DATE_NAGER_WAIT_DURATION:2000}
+        failure-rate-threshold: ${RESILIENCE4J_DATE_NAGER_FAILURE_RATE:20}
+        slow-call-rate-threshold: ${RESILIENCE4J_DATE_NAGER_SLOW_CALL_RATE:50}
+        slow-call-duration-threshold: ${RESILIENCE4J_DATE_NAGER_SLOW_CALL_DURATION:500}
       dog-api:
-        sliding-window-size: 30
-        minimum-number-of-calls: 15
-        permitted-number-of-calls-in-half-open-state: 8
+        sliding-window-size: ${RESILIENCE4J_DOG_SLIDING_WINDOW_SIZE:30}
+        minimum-number-of-calls: ${RESILIENCE4J_DOG_MIN_CALLS:15}
+        permitted-number-of-calls-in-half-open-state: ${RESILIENCE4J_DOG_PERMITTED_CALLS_HALF_OPEN:8}
         automatic-transition-from-open-to-half-open-enabled: true
-        wait-duration-in-open-state: 1000
-        failure-rate-threshold: 25
-        slow-call-rate-threshold: 60
-        slow-call-duration-threshold: 300
+        wait-duration-in-open-state: ${RESILIENCE4J_DOG_WAIT_DURATION:1000}
+        failure-rate-threshold: ${RESILIENCE4J_DOG_FAILURE_RATE:25}
+        slow-call-rate-threshold: ${RESILIENCE4J_DOG_SLOW_CALL_RATE:60}
+        slow-call-duration-threshold: ${RESILIENCE4J_DOG_SLOW_CALL_DURATION:300}
   retry:
     instances:
       date-nager-api:
-        max-attempts: 1
-        wait-duration: 50
+        max-attempts: ${RESILIENCE4J_DATE_NAGER_MAX_ATTEMPTS:1}
+        wait-duration: ${RESILIENCE4J_DATE_NAGER_WAIT_DURATION_RETRY:50}
         retry-exceptions:
           - java.io.IOException
           - java.util.concurrent.TimeoutException
           - org.springframework.web.client.ResourceAccessException
       dog-api:
-        max-attempts: 1
-        wait-duration: 30
+        max-attempts: ${RESILIENCE4J_DOG_MAX_ATTEMPTS:1}
+        wait-duration: ${RESILIENCE4J_DOG_WAIT_DURATION_RETRY:30}
         retry-exceptions:
           - java.io.IOException
           - java.util.concurrent.TimeoutException
   timelimiter:
     instances:
       date-nager-api:
-        timeout-duration: 500
+        timeout-duration: ${RESILIENCE4J_DATE_NAGER_TIMEOUT_DURATION:500}
         cancel-running-future: true
       dog-api:
-        timeout-duration: 300
+        timeout-duration: ${RESILIENCE4J_DOG_TIMEOUT_DURATION:300}
         cancel-running-future: true
   ratelimiter:
     instances:
       date-nager-api:
-        limit-for-period: 100
-        limit-refresh-period: 1000
-        timeout-duration: 100
+        limit-for-period: ${RESILIENCE4J_DATE_NAGER_LIMIT_PERIOD:100}
+        limit-refresh-period: ${RESILIENCE4J_DATE_NAGER_LIMIT_REFRESH:1000}
+        timeout-duration: ${RESILIENCE4J_DATE_NAGER_RATE_TIMEOUT:100}
       dog-api:
-        limit-for-period: 200
-        limit-refresh-period: 1000
-        timeout-duration: 50
+        limit-for-period: ${RESILIENCE4J_DOG_LIMIT_PERIOD:200}
+        limit-refresh-period: ${RESILIENCE4J_DOG_LIMIT_REFRESH:1000}
+        timeout-duration: ${RESILIENCE4J_DOG_RATE_TIMEOUT:50}
 
 java:
   version: "21"
   virtual-threads:
-    enabled: true
-    max-count: 20000
-    stack-size: "128KB"
+    enabled: ${JAVA_VIRTUAL_THREADS_ENABLED:true}
+    max-count: ${JAVA_VIRTUAL_THREADS_MAX_COUNT:20000}
+    stack-size: ${JAVA_VIRTUAL_THREADS_STACK_SIZE:128KB}
 
 rabbitmq:
   config:
     address: ${RABBIT_MQ_ADDRESS:amqp://localhost:5672/packagetracking}
-  host: localhost
-  port: 5672
-  connection-timeout: 500
-  requested-heartbeat: 30
+  host: ${RABBIT_MQ_HOST:localhost}
+  port: ${RABBIT_MQ_PORT:5672}
+  connection-timeout: ${RABBIT_MQ_CONNECTION_TIMEOUT:500}
+  requested-heartbeat: ${RABBIT_MQ_REQUESTED_HEARTBEAT:30}
   connection:
-    timeout: 500
-    shutdown-timeout: 500
+    timeout: ${RABBIT_MQ_CONNECTION_TIMEOUT:500}
+    shutdown-timeout: ${RABBIT_MQ_SHUTDOWN_TIMEOUT:500}
   template:
     retry:
-      enabled: true
-      initial-interval: 100
-      max-attempts: 1
-      max-interval: 200
-      multiplier: 1.0
+      enabled: ${RABBIT_MQ_TEMPLATE_RETRY_ENABLED:true}
+      initial-interval: ${RABBIT_MQ_TEMPLATE_RETRY_INITIAL_INTERVAL:100}
+      max-attempts: ${RABBIT_MQ_TEMPLATE_RETRY_MAX_ATTEMPTS:1}
+      max-interval: ${RABBIT_MQ_TEMPLATE_RETRY_MAX_INTERVAL:200}
+      multiplier: ${RABBIT_MQ_TEMPLATE_RETRY_MULTIPLIER:1.0}
   listener:
     simple:
       concurrency: ${RABBIT_MQ_LISTENER_CONCURRENCY:10}
@@ -248,15 +247,15 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: ${MANAGEMENT_ENDPOINTS_INCLUDE:health,info,metrics,prometheus}
   endpoint:
     health:
-      show-details: when-authorized
+      show-details: ${MANAGEMENT_HEALTH_SHOW_DETAILS:when-authorized}
       show-components: always
   metrics:
     export:
       prometheus:
-        enabled: true
+        enabled: ${MANAGEMENT_METRICS_PROMETHEUS_ENABLED:true}
     enable:
       hikaricp: true
       jvm: true
@@ -269,9 +268,9 @@ management:
 
 logging:
   pattern:
-    console: '{"timestamp":"%d{yyyy-MM-dd HH:mm:ss.SSS}","level":"%level","logger":"%logger{36}","message":"%msg","thread":"%thread","traceId":"%X{traceId}","spanId":"%X{spanId}"}'
+    console: ${LOGGING_PATTERN_CONSOLE:'{"timestamp":"%d{yyyy-MM-dd HH:mm:ss.SSS}","level":"%level","logger":"%logger{36}","message":"%msg","thread":"%thread","traceId":"%X{traceId}","spanId":"%X{spanId}"}'}
   level:
-    com.packagetracking: INFO
-    org.springframework.web: WARN
-    com.packagetracking.command.client: WARN
-    com.packagetracking.command.config: WARN 
+    com.packagetracking: ${LOGGING_LEVEL_PACKAGETRACKING:INFO}
+    org.springframework.web: ${LOGGING_LEVEL_SPRING_WEB:WARN}
+    com.packagetracking.command.client: ${LOGGING_LEVEL_COMMAND_CLIENT:WARN}
+    com.packagetracking.command.config: ${LOGGING_LEVEL_COMMAND_CONFIG:WARN} 

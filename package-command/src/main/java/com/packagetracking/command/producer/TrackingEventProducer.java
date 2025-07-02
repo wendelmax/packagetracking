@@ -12,7 +12,7 @@ import static com.packagetracking.command.config.RabbitMQConfig.TRACKING_EVENTS_
 @Component
 @RequiredArgsConstructor
 @Slf4j
-@ConditionalOnProperty(name = "app.modules.tracking-producer-enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "app.resources.endpoints", havingValue = "events")
 public class TrackingEventProducer {
     
     private final RabbitTemplate rabbitTemplate;

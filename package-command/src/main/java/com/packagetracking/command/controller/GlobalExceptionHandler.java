@@ -10,6 +10,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.dao.DataIntegrityViolationException;
+import com.packagetracking.command.exception.ResourceNotFoundException;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -77,6 +79,67 @@ public class GlobalExceptionHandler {
         
         log.warn("Tipo de parâmetro inválido: {} deve ser {}", ex.getName(), ex.getRequiredType().getSimpleName());
         return ResponseEntity.badRequest().body(errorResponse);
+    }
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFound(ResourceNotFoundException ex) {
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.NOT_FOUND.value())
+                .error("Recurso Não Encontrado")
+                .message(ex.getMessage())
+                .build();
+        
+        log.warn("Recurso não encontrado: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+    }
+
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<ErrorResponse> handleRuntimeException(RuntimeException ex) {
+        // Verifica se é um caso de "não encontrado" (fallback para compatibilidade)
+        if (ex.getMessage() != null && ex.getMessage().contains("não encontrado")) {
+            ErrorResponse errorResponse = ErrorResponse.builder()
+                    .timestamp(LocalDateTime.now())
+                    .status(HttpStatus.NOT_FOUND.value())
+                    .error("Recurso Não Encontrado")
+                    .message(ex.getMessage())
+                    .build();
+            
+            log.warn("Recurso não encontrado: {}", ex.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        }
+        
+        // Para outras RuntimeException, retorna 500
+        Map<String, String> details = new HashMap<>();
+        details.put("exception", ex.getClass().getSimpleName());
+        details.put("message", ex.getMessage());
+        if (ex.getCause() != null) {
+            details.put("cause", ex.getCause().getClass().getSimpleName() + ": " + ex.getCause().getMessage());
+        }
+        
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                .error("Erro Interno do Servidor")
+                .message("Ocorreu um erro inesperado. Tente novamente mais tarde.")
+                .details(details)
+                .build();
+        
+        log.error("Erro interno do servidor (RuntimeException): {}", ex.getMessage(), ex);
+        return ResponseEntity.internalServerError().body(errorResponse);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.CONFLICT.value())
+                .error("Conflito de Dados")
+                .message("Recurso já existe ou viola restrições únicas")
+                .build();
+        
+        log.warn("Conflito de dados: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
     }
 
     @ExceptionHandler(Exception.class)

@@ -14,7 +14,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@ConditionalOnProperty(name = "app.modules.tracking-producer-enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "app.resources.queues", havingValue = "true", matchIfMissing = false)
 public class RabbitMQConfig {
 
     public static final String TRACKING_EVENTS_EXCHANGE = "tracking.events.exchange";

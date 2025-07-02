@@ -11,7 +11,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import java.time.format.DateTimeFormatter;
 
@@ -19,13 +23,21 @@ import java.time.format.DateTimeFormatter;
 @RequestMapping("/api/packages")
 @RequiredArgsConstructor
 @Slf4j
-@ConditionalOnProperty(name = "app.modules.package-controllers-enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "app.resources.endpoints", havingValue = "package")
 public class PackageController {
     
     private final PackageService packageService;
 
     @PostMapping
-    public ResponseEntity<PackageResponse> createPackage(@Valid @RequestBody PackageCreateRequest request) {
+    public ResponseEntity<?> createPackage(@Valid @RequestBody PackageCreateRequest request, 
+                                         BindingResult bindingResult) {
+        if (bindingResult.hasErrors()) {
+            Map<String, String> errors = new HashMap<>();
+            bindingResult.getFieldErrors().forEach(e -> 
+                errors.put(e.getField(), e.getDefaultMessage()));
+            return ResponseEntity.badRequest().body(errors);
+        }
+        
         PackageResponse response = packageService.createPackageSync(request);
         
         log.info("Pacote criado com sucesso: {}", response.getId());
@@ -36,9 +48,17 @@ public class PackageController {
     }
     
     @PutMapping("/{id}/status")
-    public ResponseEntity<PackageResponse> updatePackageStatus(
+    public ResponseEntity<?> updatePackageStatus(
             @PathVariable String id, 
-            @Valid @RequestBody PackageUpdateRequest request) {
+            @Valid @RequestBody PackageUpdateRequest request,
+            BindingResult bindingResult) {
+        if (bindingResult.hasErrors()) {
+            Map<String, String> errors = new HashMap<>();
+            bindingResult.getFieldErrors().forEach(e -> 
+                errors.put(e.getField(), e.getDefaultMessage()));
+            return ResponseEntity.badRequest().body(errors);
+        }
+        
         log.info("Atualizando status do pacote: {} para {}", id, request.getStatus());
         PackageResponse response = packageService.updatePackageStatus(id, request.getStatus());
         

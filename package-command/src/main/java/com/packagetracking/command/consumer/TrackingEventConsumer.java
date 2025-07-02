@@ -20,7 +20,7 @@ import static com.packagetracking.command.config.RabbitMQConfig.TRACKING_EVENTS_
 @Component
 @RequiredArgsConstructor
 @Slf4j
-@ConditionalOnProperty(name = "app.modules.tracking-consumer-enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "app.resources.endpoints", havingValue = "none")
 public class TrackingEventConsumer {
     
     private final TrackingEventService trackingEventService;

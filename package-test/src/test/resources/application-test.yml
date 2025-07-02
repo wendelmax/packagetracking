@@ -13,7 +13,7 @@ spring:
       url: jdbc:tc:mysql:8.0:///packagetracking?TC_INITSCRIPT=init-slave.sql
       username: app_read
       password: app_read
-              driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+      driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
   
   jpa:
     hibernate:
@@ -30,6 +30,206 @@ spring:
     username: guest
     password: guest
     virtual-host: /
+
+app:
+  country-code: BR
+  
+  resources:
+    persistence: ${PERSISTENCE_ENABLED:true}
+    queues: ${QUEUES_ENABLED:true}
+    endpoints: ${ENDPOINTS_TYPE:package}
+  
+  fixed-holidays:
+    - "01-01"
+    - "04-21"
+    - "05-01"
+    - "09-07"
+    - "10-12"
+    - "11-02"
+    - "11-15"
+    - "12-25"
+
+  dlq:
+    max-retry-attempts: 3
+    retry-delay-minutes: 5
+
+external:
+  apis:
+    holiday:
+      base-url: https://date.nager.at
+      timeout:
+        connect: 300
+        read: 500
+        write: 300
+    dog:
+      base-url: https://dogapi.dog
+      timeout:
+        connect: 200
+        read: 300
+        write: 200
+
+feign:
+  client:
+    config:
+      default:
+        connect-timeout: 300
+        read-timeout: 500
+        logger-level: basic
+      holiday-api:
+        connect-timeout: 300
+        read-timeout: 500
+        logger-level: basic
+      dog-api:
+        connect-timeout: 200
+        read-timeout: 300
+        logger-level: basic
+  circuitbreaker:
+    enabled: true
+  compression:
+    request:
+      enabled: true
+      mime-types: text/xml,application/xml,application/json
+      min-request-size: 2048
+    response:
+      enabled: true
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      date-nager-api:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        wait-duration-in-open-state: 1000
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 50
+        slow-call-duration-threshold: 200
+      dog-api:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        wait-duration-in-open-state: 500
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 50
+        slow-call-duration-threshold: 100
+  retry:
+    instances:
+      date-nager-api:
+        max-attempts: 1
+        wait-duration: 50
+        retry-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+          - org.springframework.web.client.ResourceAccessException
+      dog-api:
+        max-attempts: 1
+        wait-duration: 30
+        retry-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+  timelimiter:
+    instances:
+      date-nager-api:
+        timeout-duration: 500
+        cancel-running-future: true
+      dog-api:
+        timeout-duration: 300
+        cancel-running-future: true
+  ratelimiter:
+    instances:
+      date-nager-api:
+        limit-for-period: 100
+        limit-refresh-period: 1000
+        timeout-duration: 100
+      dog-api:
+        limit-for-period: 200
+        limit-refresh-period: 1000
+        timeout-duration: 50
+
+java:
+  version: "21"
+  virtual-threads:
+    enabled: true
+    max-count: 100
+    stack-size: "128KB"
+
+rabbitmq:
+  config:
+    address: amqp://localhost:5672/packagetracking
+  host: localhost
+  port: 5672
+  connection-timeout: 500
+  requested-heartbeat: 30
+  connection:
+    timeout: 500
+    shutdown-timeout: 500
+  template:
+    retry:
+      enabled: true
+      initial-interval: 100
+      max-attempts: 1
+      max-interval: 200
+      multiplier: 1.0
+  listener:
+    simple:
+      concurrency: 2
+      max-concurrency: 5
+      default-requeue-rejected: false
+      auto-startup: true
+      prefetch: 10
+      retry:
+        enabled: true
+        initial-interval: 100
+        max-attempts: 1
+        max-interval: 200
+        multiplier: 1
+
+queue:
+  countries: br,us,ca,mx,ar
+  entity: package
+  qualifier: command
+
+cache:
+  redis:
+    host: localhost
+    port: 6379
+    timeout: 200
+    database: 0
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+        max-wait: -1ms
+  caffeine:
+    packages:
+      max-size: 1000
+      expire-after-write: 300s
+      expire-after-access: 60s
+    tracking-events:
+      max-size: 500
+      expire-after-write: 60s
+      expire-after-access: 30s
+
+database:
+  routing:
+    enabled: true
+    read-write-split: true
+    master:
+      url: jdbc:tc:mysql:8.0:///packagetracking?TC_INITSCRIPT=init-master.sql
+      username: app_write
+      password: app_write
+    slave:
+      url: jdbc:tc:mysql:8.0:///packagetracking?TC_INITSCRIPT=init-slave.sql
+      username: app_read
+      password: app_read
+  failover:
+    enabled: true
+    health-check-interval: 30s
+    max-retry-attempts: 3
+    retry-delay: 5s
 
 logging:
   level:
@@ -75,6 +275,15 @@ management:
     export:
       simple:
         enabled: true
+    enable:
+      hikaricp: true
+      jvm: true
+      process: true
+      system: true
+    tags:
+      application: package-test
+      component: test
+      operation: integration
 
 security:
   basic:

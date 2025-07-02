@@ -1,6 +1,7 @@
 package com.packagetracking.query.config;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
@@ -16,6 +17,7 @@ import java.time.Duration;
 
 @Configuration
 @EnableCaching
+@ConditionalOnClass(RedisConnectionFactory.class)
 @Slf4j
 public class CacheConfig {
 

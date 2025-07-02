@@ -10,6 +10,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.dao.DataIntegrityViolationException;
+import com.packagetracking.query.exception.ResourceNotFoundException;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -79,9 +81,22 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(errorResponse);
     }
 
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFound(ResourceNotFoundException ex) {
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.NOT_FOUND.value())
+                .error("Recurso Não Encontrado")
+                .message(ex.getMessage())
+                .build();
+        
+        log.warn("Recurso não encontrado: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ErrorResponse> handleRuntimeException(RuntimeException ex) {
-        // Verifica se é um caso de "não encontrado"
+        // Verifica se é um caso de "não encontrado" (fallback para compatibilidade)
         if (ex.getMessage() != null && ex.getMessage().contains("não encontrado")) {
             ErrorResponse errorResponse = ErrorResponse.builder()
                     .timestamp(LocalDateTime.now())
@@ -117,6 +132,19 @@ public class GlobalExceptionHandler {
         
         log.error("Erro interno do servidor: {}", ex.getMessage(), ex);
         return ResponseEntity.internalServerError().body(errorResponse);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.CONFLICT.value())
+                .error("Conflito de Dados")
+                .message("Recurso já existe ou viola restrições únicas")
+                .build();
+        
+        log.warn("Conflito de dados: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)

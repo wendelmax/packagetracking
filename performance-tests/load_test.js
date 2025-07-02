@@ -39,7 +39,7 @@ try {
 }
 
 // URLs base
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:8083';
+const BASE_URL = __ENV.BASE_URL || 'http://localhost:8083';  // Porta do package-query
 const PACKAGE_QUERY_URL = `${BASE_URL}/api/packages`;
 
 // Função para gerar dados aleatórios

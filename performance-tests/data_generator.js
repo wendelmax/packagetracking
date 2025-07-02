@@ -35,7 +35,7 @@ const statusList = ['IN_TRANSIT', 'DELIVERED', 'CANCELLED', 'PENDING'];
 
 async function createPackage(pkg) {
   try {
-    const res = await axios.post(`${BASE_URL}/packages`, pkg, { timeout: 5000 });
+    const res = await axios.post(`${BASE_URL}/api/packages`, pkg, { timeout: 5000 });
     return res.data;
   } catch (err) {
     return { error: err.message };
@@ -44,7 +44,7 @@ async function createPackage(pkg) {
 
 async function createEvent(packageId, event) {
   try {
-    const res = await axios.post(`${BASE_URL}/packages/${packageId}/events`, event, { timeout: 5000 });
+    const res = await axios.post(`${BASE_URL}/api/tracking-events`, event, { timeout: 5000 });
     return res.data;
   } catch (err) {
     return { error: err.message };
@@ -60,11 +60,11 @@ async function main() {
 
   for (let i = 0; i < PACKAGES_COUNT; i++) {
     const pkg = {
+      trackingCode: uuidv4().slice(0, 12).toUpperCase(),
+      description: randomFromArray(descriptions),
       sender: randomFromArray(senders),
       recipient: randomFromArray(recipients),
-      description: randomFromArray(descriptions),
-      status: randomFromArray(statusList),
-      trackingCode: uuidv4().slice(0, 12).toUpperCase()
+      estimatedDeliveryDate: new Date(Date.now() + Math.floor(Math.random() * 30 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
     };
 
     const createdPkg = await createPackage(pkg);
@@ -73,10 +73,10 @@ async function main() {
       const events = [];
       for (let j = 0; j < EVENTS_PER_PACKAGE; j++) {
         const event = {
-          type: 'STATUS_UPDATE',
-          status: randomFromArray(statusList),
+          packageId: packageId,
+          eventType: randomFromArray(statusList),
           description: `Evento ${j + 1} para pacote ${packageId}`,
-          timestamp: new Date(Date.now() - Math.floor(Math.random() * 100000000)).toISOString()
+          location: randomFromArray(['Centro de Distribuição São Paulo', 'Centro de Distribuição Rio de Janeiro', 'Centro de Distribuição Belo Horizonte', 'Centro de Distribuição Brasília'])
         };
         const createdEvent = await createEvent(packageId, event);
         events.push(createdEvent);

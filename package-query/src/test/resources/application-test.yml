@@ -29,19 +29,47 @@ spring:
 
 app:
   country-code: BR
+  
+  resources:
+    persistence: true
+    queues: false
+    endpoints: package
+
+java:
+  version: "21"
+  virtual-threads:
+    enabled: true
+    max-count: 50
+    stack-size: "128KB"
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
   endpoint:
     health:
-      show-details: never
-      show-components: never
+      show-details: when-authorized
+      show-components: always
+  metrics:
+    export:
+      prometheus:
+        enabled: false
+    enable:
+      hikaricp: true
+      jvm: true
+      process: true
+      system: true
+    tags:
+      application: package-query-test
+      component: database
+      operation: read
 
 logging:
+  pattern:
+    console: '%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n'
   level:
     com.packagetracking: DEBUG
     org.springframework.web: WARN
     org.hibernate: WARN
+    com.packagetracking.query.config: DEBUG

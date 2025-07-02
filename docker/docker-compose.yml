@@ -1,5 +1,4 @@
 services:
-  # MySQL Master (Escrita)
   mysql1:
     image: mysql:8.0
     container_name: mysql1
@@ -15,7 +14,6 @@ services:
     networks:
       - mysql_network
 
-  # MySQL Slave (Leitura)
   mysql2:
     image: mysql:8.0
     container_name: mysql2
@@ -34,7 +32,6 @@ services:
     networks:
       - mysql_network
 
-  # Redis Cache
   redis:
     image: redis:7-alpine
     container_name: redis
@@ -46,7 +43,6 @@ services:
     networks:
       - mysql_network
 
-  # RabbitMQ
   rabbitmq:
     image: rabbitmq:3.12-management
     container_name: rabbitmq
@@ -59,7 +55,6 @@ services:
     networks:
       - mysql_network
 
-  # Aplicação - Package Ingestion (escrita)
   package-ingestion:
     build:
       context: ..
@@ -68,22 +63,33 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_PROFILES_ACTIVE: docker
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql1:3306/packagetracking
+      # Configurações do servidor
+      SERVER_PORT: 8080
+      
+      # Configurações do banco de dados
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql1:3306/packagetracking?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&autoReconnect=true&failOverReadOnly=false&maxReconnects=10&initialTimeout=500&socketTimeout=1000&connectTimeout=500&cachePrepStmts=true&useServerPrepStmts=true&rewriteBatchedStatements=true
       SPRING_DATASOURCE_USERNAME: app_write
       SPRING_DATASOURCE_PASSWORD: app_write
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: guest
-      SPRING_RABBITMQ_PASSWORD: guest
-    command: ["java", "-jar", "package-command/target/package-command-1.0.0.jar", "--spring.profiles.active=docker"]
+      
+      # Configurações do RabbitMQ
+      RABBIT_MQ_HOST: rabbitmq
+      RABBIT_MQ_PORT: 5672
+      RABBIT_MQ_ADDRESS: amqp://rabbitmq:5672/packagetracking
+      
+      # Configurações de recursos
+      PERSISTENCE_ENABLED: true
+      QUEUES_ENABLED: false
+      ENDPOINTS_TYPE: package
+      
+      # Configurações de logging
+      LOGGING_LEVEL_PACKAGETRACKING: INFO
+      LOGGING_LEVEL_SPRING_WEB: WARN
     depends_on:
       - mysql1
       - rabbitmq
     networks:
       - mysql_network
 
-  # Aplicação - Event Ingestion
   event-ingestion:
     build:
       context: ..
@@ -92,22 +98,28 @@ services:
     ports:
       - "8081:8080"
     environment:
-      SPRING_PROFILES_ACTIVE: producer
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql1:3306/packagetracking
-      SPRING_DATASOURCE_USERNAME: app_write
-      SPRING_DATASOURCE_PASSWORD: app_write
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: guest
-      SPRING_RABBITMQ_PASSWORD: guest
-    command: ["java", "-jar", "package-command/target/package-command-1.0.0.jar", "--spring.profiles.active=producer"]
+      # Configurações do servidor
+      SERVER_PORT: 8080
+      
+      # Configurações do RabbitMQ
+      RABBIT_MQ_HOST: rabbitmq
+      RABBIT_MQ_PORT: 5672
+      RABBIT_MQ_ADDRESS: amqp://rabbitmq:5672/packagetracking
+      
+      # Configurações de recursos
+      PERSISTENCE_ENABLED: false
+      QUEUES_ENABLED: true
+      ENDPOINTS_TYPE: events
+      
+      # Configurações de logging
+      LOGGING_LEVEL_PACKAGETRACKING: INFO
+      LOGGING_LEVEL_SPRING_WEB: WARN
     depends_on:
       - mysql1
       - rabbitmq
     networks:
       - mysql_network
 
-  # Aplicação - Event Consumer
   event-consumer:
     build:
       context: ..
@@ -116,41 +128,70 @@ services:
     ports:
       - "8082:8080"
     environment:
-      SPRING_PROFILES_ACTIVE: consumer
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql2:3306/packagetracking
-      SPRING_DATASOURCE_USERNAME: app_read
-      SPRING_DATASOURCE_PASSWORD: app_read
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: guest
-      SPRING_RABBITMQ_PASSWORD: guest
-    command: ["java", "-jar", "package-command/target/package-command-1.0.0.jar", "--spring.profiles.active=consumer"]
+      # Configurações do servidor
+      SERVER_PORT: 8080
+      
+      # Configurações do banco de dados
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql1:3306/packagetracking?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&autoReconnect=true&failOverReadOnly=false&maxReconnects=10&initialTimeout=500&socketTimeout=1000&connectTimeout=500&cachePrepStmts=true&useServerPrepStmts=true&rewriteBatchedStatements=true
+      SPRING_DATASOURCE_USERNAME: app_write
+      SPRING_DATASOURCE_PASSWORD: app_write
+      
+      # Configurações do RabbitMQ
+      RABBIT_MQ_HOST: rabbitmq
+      RABBIT_MQ_PORT: 5672
+      RABBIT_MQ_ADDRESS: amqp://rabbitmq:5672/packagetracking
+      
+      # Configurações de recursos
+      PERSISTENCE_ENABLED: true
+      QUEUES_ENABLED: true
+      ENDPOINTS_TYPE: none
+      
+      # Configurações de logging
+      LOGGING_LEVEL_PACKAGETRACKING: INFO
+      LOGGING_LEVEL_SPRING_WEB: WARN
     depends_on:
-      - mysql2
+      - mysql1
       - rabbitmq
     networks:
       - mysql_network
 
-  # Aplicação - Query Service
   package-query:
     build:
       context: ..
       dockerfile: docker/build/Dockerfile.query
     container_name: package-query
     ports:
-      - "8083:8080"
+      - "8083:8083"
     environment:
-      SPRING_PROFILES_ACTIVE: query
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql2:3306/packagetracking
-      SPRING_DATASOURCE_USERNAME: app_read
-      SPRING_DATASOURCE_PASSWORD: app_read
+      # Configurações do servidor
+      SERVER_PORT: 8083
+      
+      # Configurações do banco de dados
+      SPRING_DATASOURCE_SLAVE_URL: jdbc:mysql://mysql2:3306/packagetracking?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&autoReconnect=true&failOverReadOnly=true&maxReconnects=10&initialTimeout=300&socketTimeout=500&connectTimeout=300&cachePrepStmts=true&useServerPrepStmts=true&rewriteBatchedStatements=true
+      SPRING_DATASOURCE_SLAVE_USERNAME: app_read
+      SPRING_DATASOURCE_SLAVE_PASSWORD: app_read
+      SPRING_DATASOURCE_MASTER_URL: jdbc:mysql://mysql1:3306/packagetracking?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&autoReconnect=true&failOverReadOnly=true&maxReconnects=10&initialTimeout=300&socketTimeout=500&connectTimeout=300&cachePrepStmts=true&useServerPrepStmts=true&rewriteBatchedStatements=true
+      SPRING_DATASOURCE_MASTER_USERNAME: app_read
+      SPRING_DATASOURCE_MASTER_PASSWORD: app_read
+      
+      # Configurações do Redis
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
-      RESILIENCE4J_CIRCUITBREAKER_INSTANCES_PACKAGE_CACHE_SLIDINGWINDOWSIZE: 10
-      RESILIENCE4J_CIRCUITBREAKER_INSTANCES_PACKAGE_CACHE_FAILURERATETHRESHOLD: 50
-      RESILIENCE4J_CIRCUITBREAKER_INSTANCES_PACKAGE_CACHE_WAITDURATIONINOPENSTATE: 5000
-    command: ["java", "-jar", "package-query/target/package-query-1.0.0.jar", "--spring.profiles.active=query"]
+      
+      # Configurações de cache
+      APP_CACHE_PACKAGES_TTL: 3600
+      APP_CACHE_PACKAGES_MAX_SIZE: 1000
+      APP_CACHE_EVENTS_TTL: 300
+      APP_CACHE_EVENTS_MAX_SIZE: 500
+      APP_FAILOVER_ENABLED: true
+      
+      # Configurações de logging
+      LOGGING_LEVEL_PACKAGETRACKING_QUERY: INFO
+      LOGGING_LEVEL_SPRING_CACHE: DEBUG
+      LOGGING_LEVEL_RESILIENCE4J: DEBUG
+      LOGGING_LEVEL_SPRING_REDIS: DEBUG
     depends_on:
+      - mysql1
       - mysql2
       - redis
     networks:

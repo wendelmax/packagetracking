@@ -25,6 +25,9 @@ docker exec mysql1 mysql -uroot -proot -e "CREATE USER IF NOT EXISTS 'replicator
 docker exec mysql1 mysql -uroot -proot -e "CREATE USER IF NOT EXISTS 'app_write'@'%' IDENTIFIED WITH mysql_native_password BY 'app_write'; GRANT ALL PRIVILEGES ON packagetracking.* TO 'app_write'@'%'; FLUSH PRIVILEGES;" 2>/dev/null
 docker exec mysql1 mysql -uroot -proot -e "CREATE USER IF NOT EXISTS 'app_read'@'%' IDENTIFIED WITH mysql_native_password BY 'app_read'; GRANT SELECT ON packagetracking.* TO 'app_read'@'%'; FLUSH PRIVILEGES;" 2>/dev/null
 
+echo "Criando usuários MySQL no Slave..."
+docker exec mysql2 mysql -uroot -proot -e "CREATE USER IF NOT EXISTS 'app_read'@'%' IDENTIFIED WITH mysql_native_password BY 'app_read'; GRANT SELECT ON packagetracking.* TO 'app_read'@'%'; FLUSH PRIVILEGES;" 2>/dev/null
+
 echo "Testando replicação MySQL..."
 cd docker
 ./test-replication.sh

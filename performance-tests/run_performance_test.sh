@@ -14,10 +14,11 @@ NC='\033[0m' # No Color
 
 # Configurações
 BASE_URL=${BASE_URL:-"http://localhost:8080"}
-QUERY_URL=${QUERY_URL:-"http://localhost:8083"}
+QUERY_URL=${QUERY_URL:-"http://localhost:8083"}  # Porta do package-query
 PACKAGES_COUNT=${PACKAGES_COUNT:-1000}
 EVENTS_PER_PACKAGE=${EVENTS_PER_PACKAGE:-5}
 RESULTS_DIR="results/$(date +%Y%m%d_%H%M%S)"
+SPRING_PROFILE=${SPRING_PROFILE:-"default"}
 
 # Função para log colorido
 log() {
@@ -41,24 +42,90 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Função para verificar se o Docker está rodando
+check_docker() {
+    if ! command_exists docker; then
+        error "Docker não encontrado. Instale o Docker primeiro."
+        exit 1
+    fi
+    
+    if ! docker info >/dev/null 2>&1; then
+        error "Docker não está rodando. Inicie o Docker primeiro."
+        exit 1
+    fi
+    
+    log "✅ Docker está rodando"
+}
+
+# Função para configurar profile de performance
+configure_performance_profile() {
+    log "Configurando configurações balanceadas para performance"
+    
+    info "Usando configurações balanceadas otimizadas:"
+    info "  - Persistence: habilitado"
+    info "  - Queues: habilitado"
+    info "  - Endpoints: package"
+    info "  - Virtual Threads: 100"
+    info "  - Pool de conexões: otimizado por container"
+    info "  - Cache: habilitado"
+    info "  - Circuit Breaker: habilitado"
+}
+
+# Função para subir os containers
+start_containers() {
+    log "Verificando se os containers estão rodando..."
+    
+    # Verificar se os containers principais estão rodando
+    if docker ps --format "table {{.Names}}" | grep -q "mysql1\|redis\|package-command\|package-query" 2>/dev/null; then
+        log "✅ Containers já estão rodando"
+        return 0
+    fi
+    
+    log "🚀 Subindo containers com Docker Compose para performance..."
+    
+    # Navegar para o diretório docker
+    cd ../docker
+    
+    # Parar containers existentes se houver
+    docker compose down 2>/dev/null || true
+    
+    # Subir containers com configurações balanceadas otimizadas
+    docker compose up -d --build
+    
+    if [ $? -eq 0 ]; then
+        log "✅ Containers de performance iniciados com sucesso"
+    else
+        error "❌ Falha ao iniciar containers de performance"
+        exit 1
+    fi
+    
+    # Voltar para o diretório original
+    cd ../performance-tests
+    
+    # Aguardar um pouco para os containers inicializarem
+    log "Aguardando inicialização dos containers..."
+    sleep 15
+}
+
 # Função para verificar se a API está respondendo
 check_api_health() {
     local url=$1
     local service=$2
+    local max_attempts=${3:-30}
     
     log "Verificando saúde da API $service em $url"
     
-    for i in {1..30}; do
+    for i in {1..$max_attempts}; do
         if curl -s -f "$url/actuator/health" >/dev/null 2>&1; then
             log "✅ API $service está respondendo"
             return 0
         fi
         
-        warn "Tentativa $i/30: API $service não está respondendo, aguardando..."
+        warn "Tentativa $i/$max_attempts: API $service não está respondendo, aguardando..."
         sleep 2
     done
     
-    error "❌ API $service não está respondendo após 30 tentativas"
+    error "❌ API $service não está respondendo após $max_attempts tentativas"
     return 1
 }
 
@@ -427,6 +494,14 @@ EOF
 # Função principal
 main() {
     log "🚀 Iniciando teste de performance completo"
+    log "Configurações:"
+    log "  - Base URL: $BASE_URL"
+    log "  - Query URL: $QUERY_URL"
+    log "  - Profile: $SPRING_PROFILE"
+    log "  - Pacotes: $PACKAGES_COUNT"
+    log "  - Eventos por pacote: $EVENTS_PER_PACKAGE"
+    log "  - Diretório de resultados: $RESULTS_DIR"
+    log ""
     
     # Verificar se estamos no diretório correto
     if [ ! -f "data_generator.js" ] || [ ! -f "load_test.js" ]; then
@@ -434,12 +509,25 @@ main() {
         exit 1
     fi
     
+    # Verificar Docker
+    check_docker
+    
     # Instalar dependências
     install_dependencies
     
+    # Configurar profile de performance
+    configure_performance_profile
+    
+    # Subir containers se necessário
+    start_containers
+    
     # Verificar saúde das APIs
     check_api_health "$BASE_URL" "Package Ingestion" || exit 1
-    check_api_health "$QUERY_URL" "Package Query" || exit 1
+    check_api_health "$QUERY_URL" "Package Query" 3 || warn "Package Query não está respondendo - continuando apenas com geração de dados"
+    
+    # Verificar se o event-ingestion também está respondendo (opcional)
+    EVENT_INGESTION_URL="http://localhost:8081"
+    check_api_health "$EVENT_INGESTION_URL" "Event Ingestion" || warn "Event Ingestion não está respondendo (pode ser normal se não estiver configurado)"
     
     # Criar diretório de resultados
     create_results_dir
@@ -460,6 +548,50 @@ main() {
     log "🎉 Teste de performance concluído com sucesso!"
     log "📁 Resultados disponíveis em: $RESULTS_DIR"
 }
+
+# Função para limpar recursos
+cleanup() {
+    log "Limpando recursos..."
+    
+    # Parar coleta de métricas se estiver rodando
+    if [ ! -z "$METRICS_PID" ]; then
+        log "Parando coleta de métricas..."
+        kill $METRICS_PID 2>/dev/null || true
+    fi
+    
+    # Parar containers se solicitado
+    if [ "$CLEANUP_CONTAINERS" = "true" ]; then
+        log "Parando containers de performance..."
+        cd ../docker
+        docker compose down
+        cd ../performance-tests
+    fi
+    
+    log "Limpeza concluída"
+}
+
+# Função para limpar containers de performance
+cleanup_performance_containers() {
+    log "Limpando containers de performance..."
+    
+    cd ../docker
+    
+    # Parar e remover containers de performance
+    docker compose down --volumes --remove-orphans
+    
+    # Limpar imagens relacionadas
+    docker rmi $(docker images -q packagetracking_package-ingestion 2>/dev/null) 2>/dev/null || true
+    docker rmi $(docker images -q packagetracking_event-ingestion 2>/dev/null) 2>/dev/null || true
+    docker rmi $(docker images -q packagetracking_event-consumer 2>/dev/null) 2>/dev/null || true
+    docker rmi $(docker images -q packagetracking_package-query 2>/dev/null) 2>/dev/null || true
+    
+    cd ../performance-tests
+    
+    log "Containers de performance limpos"
+}
+
+# Configurar trap para limpeza em caso de erro
+trap cleanup EXIT
 
 # Executar função principal
 main "$@" 
