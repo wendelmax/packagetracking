@@ -11,13 +11,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Service
@@ -84,46 +83,7 @@ public class PackageQueryService {
         }
     }
     
-    /**
-     * Busca pacote por ID de forma assíncrona usando Virtual Threads
-     */
-    @Async("persistenceExecutor")
-    @CircuitBreaker(name = "package-cache", fallbackMethod = "getPackageAsyncFallback")
-    public CompletableFuture<PackageResponse> getPackageAsync(String id, boolean includeEvents) {
-        try {
-            log.debug("Buscando pacote assincronamente: {} (incluir eventos: {}) (Thread: {})", 
-                     id, includeEvents, Thread.currentThread());
-            
-            Package packageEntity = packageRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Pacote não encontrado: " + id));
-            
-            PackageResponse response = buildPackageResponse(packageEntity, includeEvents);
-            
-            return CompletableFuture.completedFuture(response);
-                
-        } catch (Exception e) {
-            log.error("Erro ao buscar pacote assincronamente {}: {}", id, e.getMessage(), e);
-            return CompletableFuture.failedFuture(e);
-        }
-    }
-    
-    /**
-     * Fallback method para circuit breaker assíncrono
-     */
-    public CompletableFuture<PackageResponse> getPackageAsyncFallback(String id, boolean includeEvents, Exception e) {
-        log.warn("Circuit breaker ativado para pacote assíncrono {}: {}", id, e.getMessage());
-        
-        try {
-            Package packageEntity = packageRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Pacote não encontrado: " + id));
-            
-            PackageResponse response = buildPackageResponse(packageEntity, includeEvents);
-            return CompletableFuture.completedFuture(response);
-        } catch (Exception fallbackException) {
-            log.error("Erro no fallback assíncrono para pacote {}: {}", id, fallbackException.getMessage());
-            return CompletableFuture.failedFuture(new RuntimeException("Erro interno do sistema", fallbackException));
-        }
-    }
+
     
     /**
      * Busca lista de pacotes com filtros
@@ -155,66 +115,36 @@ public class PackageQueryService {
         }
     }
     
-    /**
-     * Busca lista de pacotes de forma assíncrona usando Virtual Threads
-     */
-    @Async("persistenceExecutor")
-    public CompletableFuture<List<PackageResponse>> getPackagesAsync(String sender, String recipient) {
-        try {
-            log.debug("Buscando pacotes assincronamente - sender: {}, recipient: {} (Thread: {})", 
-                     sender, recipient, Thread.currentThread());
-            
-            List<Package> packages;
-            
-            if (sender != null && recipient != null) {
-                packages = packageRepository.findBySenderAndRecipient(sender, recipient);
-            } else if (sender != null) {
-                packages = packageRepository.findBySender(sender);
-            } else if (recipient != null) {
-                packages = packageRepository.findByRecipient(recipient);
-            } else {
-                packages = packageRepository.findAll();
-            }
-            
-            List<PackageResponse> responses = packages.stream()
-                .map(packageEntity -> buildPackageResponse(packageEntity, false))
-                .toList();
-            
-            log.debug("Pacotes encontrados assincronamente: {} registros (Thread: {})", 
-                     responses.size(), Thread.currentThread());
-            return CompletableFuture.completedFuture(responses);
-                
-        } catch (Exception e) {
-            log.error("Erro ao buscar pacotes assincronamente: {}", e.getMessage(), e);
-            return CompletableFuture.failedFuture(e);
-        }
-    }
+
     
     /**
-     * Busca lista de pacotes paginada
-     * Sem cache para paginação
+     * Busca lista de pacotes paginada usando Spring Data JPA padrão
      */
     public Page<PackageResponse> getPackagesPaginated(String sender, String recipient, Pageable pageable) {
         try {
             log.info("Buscando pacotes paginados - sender: {}, recipient: {}, page: {}, size: {}", 
                      sender, recipient, pageable.getPageNumber(), pageable.getPageSize());
             
-            Page<Package> packages;
+            // Usa a paginação padrão do Spring Data JPA
+            Page<Package> packages = packageRepository.findAll(pageable);
             
-            if (sender != null && recipient != null) {
-                packages = packageRepository.findBySenderAndRecipient(sender, recipient, pageable);
-            } else if (sender != null) {
-                packages = packageRepository.findBySender(sender, pageable);
-            } else if (recipient != null) {
-                packages = packageRepository.findByRecipient(recipient, pageable);
-            } else {
-                packages = packageRepository.findAll(pageable);
+            // Filtra os resultados se necessário
+            if (sender != null || recipient != null) {
+                List<Package> filteredPackages = packages.getContent().stream()
+                    .filter(pkg -> 
+                        (sender == null || pkg.getSender().equals(sender)) &&
+                        (recipient == null || pkg.getRecipient().equals(recipient))
+                    )
+                    .collect(Collectors.toList());
+                
+                // Reconstrói a página com os resultados filtrados
+                Page<Package> filteredPage = new PageImpl<>(filteredPackages, pageable, filteredPackages.size());
+                return filteredPage.map(packageEntity -> buildPackageResponse(packageEntity, false));
             }
             
             Page<PackageResponse> responsePage = packages.map(packageEntity -> buildPackageResponse(packageEntity, false));
             
-            log.debug("Pacotes paginados encontrados: {} registros (Thread: {})", 
-                     responsePage.getContent().size(), Thread.currentThread());
+            log.debug("Pacotes paginados encontrados: {} registros", responsePage.getContent().size());
             return responsePage;
                 
         } catch (Exception e) {
@@ -223,38 +153,7 @@ public class PackageQueryService {
         }
     }
     
-    /**
-     * Busca lista de pacotes paginada de forma assíncrona
-     */
-    @Async("persistenceExecutor")
-    public CompletableFuture<Page<PackageResponse>> getPackagesPaginatedAsync(String sender, String recipient, Pageable pageable) {
-        try {
-            log.debug("Buscando pacotes paginados assincronamente - sender: {}, recipient: {}, page: {}, size: {} (Thread: {})", 
-                     sender, recipient, pageable.getPageNumber(), pageable.getPageSize(), Thread.currentThread());
-            
-            Page<Package> packages;
-            
-            if (sender != null && recipient != null) {
-                packages = packageRepository.findBySenderAndRecipient(sender, recipient, pageable);
-            } else if (sender != null) {
-                packages = packageRepository.findBySender(sender, pageable);
-            } else if (recipient != null) {
-                packages = packageRepository.findByRecipient(recipient, pageable);
-            } else {
-                packages = packageRepository.findAll(pageable);
-            }
-            
-            Page<PackageResponse> responsePage = packages.map(packageEntity -> buildPackageResponse(packageEntity, false));
-            
-            log.debug("Pacotes paginados encontrados assincronamente: {} registros (Thread: {})", 
-                     responsePage.getContent().size(), Thread.currentThread());
-            return CompletableFuture.completedFuture(responsePage);
-                
-        } catch (Exception e) {
-            log.error("Erro ao buscar pacotes paginados assincronamente: {}", e.getMessage(), e);
-            return CompletableFuture.failedFuture(e);
-        }
-    }
+
     
     /**
      * Método auxiliar para construir PackageResponse

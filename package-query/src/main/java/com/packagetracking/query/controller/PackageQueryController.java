@@ -13,8 +13,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/api/packages")
@@ -61,32 +59,7 @@ public class PackageQueryController {
         }
     }
     
-    /**
-     * Consulta detalhes de um pacote de forma assíncrona com opção de incluir eventos
-     * 
-     * @param id ID do pacote
-     * @param includeEvents true para incluir eventos, false para retornar apenas dados do pacote
-     * @return CompletableFuture com detalhes do pacote
-     */
-    @GetMapping("/{id}/async")
-    public CompletableFuture<ResponseEntity<PackageResponse>> getPackageAsync(
-            @PathVariable String id,
-            @RequestParam Optional<Boolean> includeEvents) {
-        boolean includeEventsValue = includeEvents.orElse(true);
-        log.info("Buscando detalhes do pacote assincronamente: {} (incluir eventos: {})", id, includeEventsValue);
-        
-        return packageQueryService.getPackageAsync(id, includeEventsValue)
-            .orTimeout(500, TimeUnit.MILLISECONDS)
-            .thenApply(ResponseEntity::ok)
-            .exceptionally(throwable -> {
-                log.error("Erro ao buscar detalhes do pacote assincronamente {}: {}", id, throwable.getMessage(), throwable);
-                if (throwable.getCause() instanceof RuntimeException && 
-                    throwable.getCause().getMessage().contains("não encontrado")) {
-                    return ResponseEntity.notFound().build();
-                }
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-            });
-    }
+
     
     /**
      * Consulta lista de pacotes com filtros opcionais de sender e recipient
@@ -116,28 +89,7 @@ public class PackageQueryController {
         }
     }
     
-    /**
-     * Consulta lista de pacotes de forma assíncrona com filtros opcionais
-     * 
-     * @param sender Filtro opcional para remetente
-     * @param recipient Filtro opcional para destinatário
-     * @return CompletableFuture com lista de pacotes (sem eventos)
-     */
-    @GetMapping("/async")
-    public CompletableFuture<ResponseEntity<List<PackageResponse>>> getPackagesAsync(
-            @RequestParam Optional<String> sender,
-            @RequestParam Optional<String> recipient) {
-        log.info("Buscando lista de pacotes assincronamente - sender: {}, recipient: {}", 
-                 sender.orElse(null), recipient.orElse(null));
-        
-        return packageQueryService.getPackagesAsync(sender.orElse(null), recipient.orElse(null))
-            .orTimeout(800, TimeUnit.MILLISECONDS)
-            .thenApply(response -> ResponseEntity.ok(response))
-            .exceptionally(throwable -> {
-                log.error("Erro ao buscar lista de pacotes assincronamente: {}", throwable.getMessage(), throwable);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-            });
-    }
+
     
     /**
      * Consulta lista de pacotes paginada com filtros opcionais
@@ -176,32 +128,5 @@ public class PackageQueryController {
         }
     }
     
-    /**
-     * Consulta lista de pacotes paginada de forma assíncrona com filtros opcionais
-     * 
-     * @param sender Filtro opcional para remetente
-     * @param recipient Filtro opcional para destinatário
-     * @param page Número da página (padrão: 0)
-     * @param size Tamanho da página (padrão: 20)
-     * @return CompletableFuture com página de pacotes (sem eventos)
-     */
-    @GetMapping("/page/async")
-    public CompletableFuture<ResponseEntity<Page<PackageResponse>>> getPackagesPaginatedAsync(
-            @RequestParam Optional<String> sender,
-            @RequestParam Optional<String> recipient,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        log.info("Buscando lista de pacotes paginada assincronamente - sender: {}, recipient: {}, page: {}, size: {}", 
-                 sender.orElse(null), recipient.orElse(null), page, size);
-        
-        Pageable pageable = PageRequest.of(page, size);
-        
-        return packageQueryService.getPackagesPaginatedAsync(sender.orElse(null), recipient.orElse(null), pageable)
-            .orTimeout(1000, TimeUnit.MILLISECONDS)
-            .thenApply(ResponseEntity::ok)
-            .exceptionally(throwable -> {
-                log.error("Erro ao buscar lista de pacotes paginada assincronamente: {}", throwable.getMessage(), throwable);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-            });
-    }
+
 } 

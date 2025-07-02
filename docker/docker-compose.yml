@@ -37,11 +37,19 @@ services:
     container_name: redis
     ports:
       - "6379:6379"
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --save 900 1 --save 300 10 --save 60 10000
     volumes:
       - redis_data:/data
+    environment:
+      - REDIS_PASSWORD=redis_password_123
     networks:
       - mysql_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   rabbitmq:
     image: rabbitmq:3.12-management
@@ -177,6 +185,7 @@ services:
       # Configurações do Redis
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
+      SPRING_REDIS_PASSWORD: redis_password_123
       
       # Configurações de cache
       APP_CACHE_PACKAGES_TTL: 3600
